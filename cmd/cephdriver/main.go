@@ -17,6 +17,7 @@ type InfoCommand struct {
 }
 
 func (x *InfoCommand) Execute(args []string) error {
+	
 	InfoResponse := voldriver.InfoResponse{
 		Name: "cephdriver",
 		Path: "/fake/path",
@@ -43,17 +44,18 @@ func (x *MountCommand) Execute(args []string) error {
 	//cmd := "ceph-fuse"
 	// need to deserialize config object to get a)keyring file name, b)ceph ip, c)mount point
 	//volumeId := args[0]
+	//fmt.Println(",,,,,> %#v", args)
 	var config cephdriver.MountConfig
-	err := json.Unmarshal([]byte(args[1]),&config)
+	err := json.Unmarshal([]byte(args[0]),&config)
 	if err == nil{
 		panic("json parsing error: config cannot be parsed")
 	}
-	cmdArgs := []string{"-k",config.Keyring,"-m" ,fmt.Sprintf("%s:6789",config.IP), config.MountPoint}
+	//cmdArgs := []string{"-k",config.Keyring,"-m" ,fmt.Sprintf("%s:6789",config.IP), config.MountPoint}
 	// if err := exec.Command(cmd, cmdArgs...).Run(); err != nil {
 	// 	fmt.Fprintln(os.Stderr, err)
 	// 	panic("Error mounting")
 	// }
-	fmt.Println(cmdArgs)
+	//ßfmt.Println(cmdArgs)
 
 	mountPoint := volman.MountResponse{config.MountPoint}
 

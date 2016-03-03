@@ -33,8 +33,11 @@ var _ = Describe("cephdriver", func() {
 			configJsonBlob, err := json.Marshal(config)
 			Expect(err).NotTo(HaveOccurred())
 			fmt.Printf("--->config:%s\n", configJsonBlob)
+			
 			mountRequest := voldriver.MountRequest{VolumeId: "test",Config: string(configJsonBlob)}
 			mountResponse, err := driver.Mount(testLogger,mountRequest)
+			fmt.Println("---------->MRP: %#v",mountResponse)
+			fmt.Println("---------->MRPE: %#v",err)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(mountResponse.Path).NotTo(Equal(nil))
 			fmt.Println(mountResponse.Path)

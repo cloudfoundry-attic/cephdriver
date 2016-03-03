@@ -62,10 +62,26 @@ export PATH=$GOROOT/bin:$PATH
 export GOPATH=$PWD
 export PATH=$PWD/bin:$PATH
 
+echo ""
+echo "diego-release (branch: cf_persistence): submodule update volman"
+echo "---------------------------------------------------------------"
+#./scripts/update
+git submodule sync --recursive && git submodule foreach --recursive git submodule sync  && git submodule update --init --recursive
+git submodule update --remote --merge src/github.com/cloudfoundry-incubator/volman
+
+echo ""
+echo "diego-release (branch: cf_persistence): submodule update cephdriver"
+echo "---------------------------------------------------------------"
+git submodule update --remote --merge src/github.com/cloudfoundry-incubator/cephdriver
+
+
+
 go install github.com/apcera/gnatsd
 go install github.com/coreos/etcd
 go install github.com/onsi/ginkgo/ginkgo
 
 
-cd cephdriver/
+
+
+cd src/github.com/cloudfoundry-incubator/cephdriver
 ginkgo -r -p
