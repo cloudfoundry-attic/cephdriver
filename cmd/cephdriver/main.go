@@ -49,7 +49,6 @@ func (x *MountCommand) Execute(args []string) error {
 	}
 	content := []byte(config.Keyring)
 	ioutil.WriteFile("/tmp/keyring", content, 0777)
-	mountPoint := volman.MountResponse{config.MountPoint}
 	cmdArgs := []string{"-k", "/tmp/keyring", "-m", fmt.Sprintf("%s:6789", config.IP), "/tmp/test"}
 	cmdHandle := exec.Command(cmd, cmdArgs...)
 	var out bytes.Buffer
@@ -61,7 +60,7 @@ func (x *MountCommand) Execute(args []string) error {
 		fmt.Println(out)
 	}
 
-	//mountPoint := volman.MountResponse{config.MountPoint}
+	mountPoint := volman.MountResponse{config.MountPoint}
 
 	jsonBlob, err := json.Marshal(mountPoint)
 	if err != nil {
