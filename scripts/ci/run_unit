@@ -3,13 +3,8 @@
 
 set -x -e
 
-tearDown () {
-	rm -rf ~/mycephfs/test-dir
-	rm -f ~/mycephfs/test.txt
-} 
-
-source $(pwd)/cephfs-bosh-release/scripts/ci/utils.sh
-check_param DEPLOYMENT_NAME
+DEPLOYMENT_NAME="cephfs-bosh-release-standalone"
+MOUNTPOINT_NAME="mountpoint"
 
 ### Install ruby and the the bosh cli
 sudo apt-get update
@@ -45,43 +40,57 @@ echo "Generating Manifest"
 ls
 ./templates/generate_manifest.sh aws ${DEPLOYMENT_NAME}
 popd
-
-cephfs_ip=$(bosh vms ${DEPLOYMENT_NAME} | grep 'cephfs/0' | awk '{print $11}')
-echo $cephfs_ip
-
 eval `ssh-agent -s`
 chmod 600 deployments-runtime/persi-ci/keys/bosh.pem
 ssh-add deployments-runtime/persi-ci/keys/bosh.pem
+cephfs_ip=$(bosh vms ${DEPLOYMENT_NAME} | grep 'cephfs/0' | awk '{print $11}')
+mkdir /tmp/cephfs-files
+pushd  /tmp/cephfs-files
+
+echo "creating config files"
+echo $cephfs_ip >  ip.conf
 
 scp -o StrictHostKeyChecking=no vcap@$cephfs_ip:/etc/ceph/ceph.client.admin.keyring .
 scp -o StrictHostKeyChecking=no vcap@$cephfs_ip:/etc/ceph/ceph.conf .
 
+popd 
+mkdir /tmp/test
+mkdir $MOUNTPOINT_NAME
+#echo $(pwd)/$MOUNTPOINT_NAME >  /tmp/cephfs-files/mountpoint.conf 
+echo "/tmp/test" >  /tmp/cephfs-files/mountpoint.conf 
+cat /tmp/cephfs-files/mountpoint.conf
+cat /tmp/cephfs-files/ip.conf
+cat /tmp/cephfs-files/ceph.client.admin.keyring
 export GOROOT=/usr/local/go
 export PATH=$GOROOT/bin:$PATH
 
+
+cd diego-release
 export GOPATH=$PWD
 export PATH=$PWD/bin:$PATH
 
-echo ""
-echo "diego-release (branch: cf_persistence): submodule update volman"
-echo "---------------------------------------------------------------"
-#./scripts/update
-git submodule sync --recursive && git submodule foreach --recursive git submodule sync  && git submodule update --init --recursive
-git submodule update --remote --merge src/github.com/cloudfoundry-incubator/volman
+# pwd
+# ls
+# echo ""
+# echo "diego-release (branch: cf_persistence): submodule update volman"
+# echo "---------------------------------------------------------------"
+# #./scripts/update
+# git submodule sync --recursive && git submodule foreach --recursive git submodule sync  && git submodule update --init --recursive
+# git submodule update --remote --merge src/github.com/cloudfoundry-incubator/volman
 
-echo ""
-echo "diego-release (branch: cf_persistence): submodule update cephdriver"
-echo "---------------------------------------------------------------"
-git submodule update --remote --merge src/github.com/cloudfoundry-incubator/cephdriver
+# echo ""
+# echo "diego-release (branch: cf_persistence): submodule update cephdriver"
+# echo "---------------------------------------------------------------"
+# git submodule update --remote --merge src/github.com/cloudfoundry-incubator/cephdriver
 
 
 
-go install github.com/apcera/gnatsd
-go install github.com/coreos/etcd
+#go install github.com/apcera/gnatsd
+#go install github.com/coreos/etcd
+go get github.com/onsi/ginkgo/ginkgo
+go get github.com/onsi/gomega
 go install github.com/onsi/ginkgo/ginkgo
-
-
-
+go install github.com/onsi/gomega
 
 cd src/github.com/cloudfoundry-incubator/cephdriver
 ginkgo -r -p

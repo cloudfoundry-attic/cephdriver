@@ -1,15 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
-	_"io/ioutil"
-	"os"
 	"github.com/cloudfoundry-incubator/cephdriver"
-	"github.com/cloudfoundry-incubator/volman/voldriver"
 	"github.com/cloudfoundry-incubator/volman"
+	"github.com/cloudfoundry-incubator/volman/voldriver"
 	flags "github.com/jessevdk/go-flags"
-	_"os/exec"
+	"io/ioutil"
+	"os"
+	"os/exec"
 )
 
 type InfoCommand struct {
@@ -17,7 +18,7 @@ type InfoCommand struct {
 }
 
 func (x *InfoCommand) Execute(args []string) error {
-	
+
 	InfoResponse := voldriver.InfoResponse{
 		Name: "cephdriver",
 		Path: "/fake/path",
@@ -32,8 +33,6 @@ func (x *InfoCommand) Execute(args []string) error {
 	return nil
 }
 
-
-
 type MountCommand struct {
 	Mount func() `short:"m" long:"mount" description:"Mount a volume Id to a path"`
 }
@@ -41,23 +40,28 @@ type MountCommand struct {
 func (x *MountCommand) Execute(args []string) error {
 
 	//eg: ceph-fuse -k ceph.client.admin.keyring -m $cephfs_ip:6789 ~/mycephfs
-	//cmd := "ceph-fuse"
-	// need to deserialize config object to get a)keyring file name, b)ceph ip, c)mount point
-	//volumeId := args[0]
-	//fmt.Println(",,,,,> %#v", args)
+	cmd := "ceph-fuse"
 	var config cephdriver.MountConfig
-	err := json.Unmarshal([]byte(args[0]),&config)
-	if err == nil{
+	err := json.Unmarshal([]byte(args[1]), &config)
+
+	if err != nil {
 		panic("json parsing error: config cannot be parsed")
 	}
-	//cmdArgs := []string{"-k",config.Keyring,"-m" ,fmt.Sprintf("%s:6789",config.IP), config.MountPoint}
-	// if err := exec.Command(cmd, cmdArgs...).Run(); err != nil {
-	// 	fmt.Fprintln(os.Stderr, err)
-	// 	panic("Error mounting")
-	// }
-	//ßfmt.Println(cmdArgs)
-
+	content := []byte(config.Keyring)
+	ioutil.WriteFile("/tmp/keyring", content, 0777)
 	mountPoint := volman.MountResponse{config.MountPoint}
+	cmdArgs := []string{"-k", "/tmp/keyring", "-m", fmt.Sprintf("%s:6789", config.IP), "/tmp/test"}
+	cmdHandle := exec.Command(cmd, cmdArgs...)
+	var out bytes.Buffer
+	cmdHandle.Stdout = &out
+	err = cmdHandle.Run()
+	if err != nil {
+		fmt.Println(os.Stderr)
+		fmt.Println(err)
+		fmt.Println(out)
+	}
+
+	//mountPoint := volman.MountResponse{config.MountPoint}
 
 	jsonBlob, err := json.Marshal(mountPoint)
 	if err != nil {
