@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/cloudfoundry-incubator/cephdriver"
+	cf_lager "github.com/cloudfoundry-incubator/cf-lager"
 	"github.com/cloudfoundry-incubator/volman"
 	"github.com/cloudfoundry-incubator/volman/voldriver"
 	flags "github.com/jessevdk/go-flags"
@@ -38,17 +39,21 @@ type MountCommand struct {
 }
 
 func (x *MountCommand) Execute(args []string) error {
+	logger, _ := cf_lager.New("cephdriver")
 
 	//eg: ceph-fuse -k ceph.client.admin.keyring -m $cephfs_ip:6789 ~/mycephfs
 	cmd := "ceph-fuse"
 	var config cephdriver.MountConfig
+	logger.Info("before unmarshall ")
 	err := json.Unmarshal([]byte(args[1]), &config)
-
+	logger.Info("after unmarshall")
 	if err != nil {
 		panic("json parsing error: config cannot be parsed")
 	}
 	content := []byte(config.Keyring)
+
 	ioutil.WriteFile("/tmp/keyring", content, 0777)
+	logger.Info("after writing keyring file")
 	cmdArgs := []string{"-k", "/tmp/keyring", "-m", fmt.Sprintf("%s:6789", config.IP), "/tmp/test"}
 	cmdHandle := exec.Command(cmd, cmdArgs...)
 	var out bytes.Buffer
