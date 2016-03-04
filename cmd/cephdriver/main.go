@@ -45,7 +45,7 @@ func (x *MountCommand) Execute(args []string) error {
 	cmd := "ceph-fuse"
 	var config cephdriver.MountConfig
 	//logger.Info("before unmarshall ")
-	err := json.Unmarshal([]byte(args[0]), &config)
+	err := json.Unmarshal([]byte(args[1]), &config)
 	//logger.Info("after unmarshall")
 	if err != nil {
 		panic("json parsing error: config cannot be parsed")
