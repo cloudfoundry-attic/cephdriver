@@ -53,11 +53,11 @@ echo $cephfs_ip >  ip.conf
 scp -o StrictHostKeyChecking=no vcap@$cephfs_ip:/etc/ceph/ceph.client.admin.keyring .
 scp -o StrictHostKeyChecking=no vcap@$cephfs_ip:/etc/ceph/ceph.conf .
 
-popd 
+popd
 mkdir /tmp/test
 mkdir $MOUNTPOINT_NAME
-#echo $(pwd)/$MOUNTPOINT_NAME >  /tmp/cephfs-files/mountpoint.conf 
-echo "/tmp/test" >  /tmp/cephfs-files/mountpoint.conf 
+#echo $(pwd)/$MOUNTPOINT_NAME >  /tmp/cephfs-files/mountpoint.conf
+echo "/tmp/test" >  /tmp/cephfs-files/mountpoint.conf
 cat /tmp/cephfs-files/mountpoint.conf
 cat /tmp/cephfs-files/ip.conf
 cat /tmp/cephfs-files/ceph.client.admin.keyring

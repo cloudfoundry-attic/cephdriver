@@ -1,17 +1,13 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/cloudfoundry-incubator/cephdriver"
-	//cf_lager "github.com/cloudfoundry-incubator/cf-lager"
-	"github.com/cloudfoundry-incubator/volman"
+	"os"
+
+	"github.com/cloudfoundry-incubator/cephdriver/cephlocal"
 	"github.com/cloudfoundry-incubator/volman/voldriver"
 	flags "github.com/jessevdk/go-flags"
-	"io/ioutil"
-	"os"
-	"os/exec"
 )
 
 type InfoCommand struct {
@@ -19,68 +15,52 @@ type InfoCommand struct {
 }
 
 func (x *InfoCommand) Execute(args []string) error {
+	cephFsdriver := cephlocal.NewLocalDriver()
 
-	InfoResponse := voldriver.InfoResponse{
-		Name: "cephdriver",
-		Path: "/fake/path",
-	}
-
-	jsonBlob, err := json.Marshal(InfoResponse)
+	response, err := cephFsdriver.Info(nil)
 	if err != nil {
-		panic("Error Marshaling the driver")
+		return err
 	}
-	fmt.Println(string(jsonBlob))
-
+	printJson(response)
 	return nil
 }
 
 type MountCommand struct {
-	Mount func() `short:"m" long:"mount" description:"Mount a volume Id to a path"`
+	Volume string `short:"v" long:"volume" description:"ID of the volume to mount"`
 }
 
 func (x *MountCommand) Execute(args []string) error {
-	//logger, _ := cf_lager.New("cephdriver")
+	cephFsdriver := cephlocal.NewLocalDriver()
 
-	//eg: ceph-fuse -k ceph.client.admin.keyring -m $cephfs_ip:6789 ~/mycephfs
-	cmd := "ceph-fuse"
-	var config cephdriver.MountConfig
-	//logger.Info("before unmarshall ")
-	err := json.Unmarshal([]byte(args[1]), &config)
-	//logger.Info("after unmarshall")
+	response, err := cephFsdriver.Mount(nil, voldriver.MountRequest{x.Volume, ""})
 	if err != nil {
-		panic("json parsing error: config cannot be parsed")
+		return err
 	}
-	content := []byte(config.Keyring)
-
-	ioutil.WriteFile("/tmp/keyring", content, 0777)
-	//logger.Info("after writing keyring file")
-	cmdArgs := []string{"-k", "/tmp/keyring", "-m", fmt.Sprintf("%s:6789", config.IP), "/tmp/test"}
-	cmdHandle := exec.Command(cmd, cmdArgs...)
-	var out bytes.Buffer
-	cmdHandle.Stdout = &out
-	err = cmdHandle.Run()
-	if err != nil {
-		fmt.Println(os.Stderr)
-		fmt.Println(err)
-		fmt.Println(out)
-	}
-
-	mountPoint := volman.MountResponse{config.MountPoint}
-
-	jsonBlob, err := json.Marshal(mountPoint)
-	if err != nil {
-		panic("Error Marshaling the mount point")
-	}
-	fmt.Println(string(jsonBlob))
-
+	printJson(response)
 	return nil
 }
+
+// type UnmountCommand struct {
+// 	Volume string `short:"v" long:"volume" description:"ID of the volume Id to unmount"`
+// }
+
+// func (x *UnmountCommand) Execute(args []string) error {
+// 	cephFsdriver := cephlocal.NewLocalDriver()
+
+// 	err := cephFsdriver.Unmount(nil, voldriver.UnmountRequest{x.Volume})
+// 	if err != nil {
+// 		return err
+// 	}
+// 	printJson(struct{}{})
+// 	return nil
+// }
 
 type Options struct{}
 
 func main() {
 	var infoCmd InfoCommand
 	var mountCmd MountCommand
+	//var unmountCmd UnmountCommand
 	var options Options
 	var parser = flags.NewParser(&options, flags.Default)
 
@@ -92,10 +72,33 @@ func main() {
 		"Mount Volume",
 		"Mount a volume Id to a path - returning the path.",
 		&mountCmd)
+	// parser.AddCommand("unmount",
+	// 	"Unnount Volume",
+	// 	"Unmount a volume Id",
+	// 	&unmountCmd)
 	_, err := parser.Parse()
 
 	if err != nil {
-		panic(err)
+		//		panic(err)
 		os.Exit(1)
 	}
+}
+
+func exists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return true, err
+}
+
+func printJson(response interface{}) {
+	jsonBlob, err := json.Marshal(response)
+	if err != nil {
+		panic("Error Marshaling the driver")
+	}
+	fmt.Println(string(jsonBlob))
 }
