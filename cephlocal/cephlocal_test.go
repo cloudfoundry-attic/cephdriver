@@ -33,6 +33,8 @@ var _ = Describe("cephlocal", func() {
 	It("should be able to mount", func() {
 		testLogger := lagertest.NewTestLogger("CephdriverTest")
 
+		fakeExec.CommandReturns(fakeCmd)
+
 		keyring = "/tmp/test-keyring"
 		ip = "192.168.100.50"
 		mountpoint = "/mnt/test-mount"
@@ -56,6 +58,8 @@ var _ = Describe("cephlocal", func() {
 		Expect(args[2]).To(Equal("-m"))
 		Expect(args[3]).To(Equal(fmt.Sprintf("%s:6789", ip)))
 		Expect(args[4]).To(Equal(mountpoint))
+
+		Expect(fakeCmd.StartCallCount()).To(Equal(1))
 
 	})
 

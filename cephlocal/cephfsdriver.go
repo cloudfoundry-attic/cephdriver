@@ -55,23 +55,25 @@ func (d *LocalDriver) Mount(logger lager.Logger, mountRequest voldriver.MountReq
 	ioutil.WriteFile("/tmp/keyring", content, 0777)
 	//logger.Info("after writing keyring file")
 	cmdArgs := []string{"-k", "/tmp/keyring", "-m", fmt.Sprintf("%s:6789", config.IP), config.MountPoint}
-	d.useExec.Command(cmd, cmdArgs...)
-	// var out bytes.Buffer
-	// cmdHandle.Stdout = &out
-	// err = cmdHandle.Run()
-	// if err != nil {
-	// 	fmt.Println(os.Stderr)
-	// 	fmt.Println(err)
-	// 	fmt.Println(out)
-	// }
+	cmdHandle := d.useExec.Command(cmd, cmdArgs...)
+
+	_, err = cmdHandle.StdoutPipe()
+	if err != nil {
+		d.writeLog(f, "unable to get stdout")
+		return voldriver.MountResponse{}, fmt.Errorf(fmt.Sprintf("unable to get stdoutv"), err)
+	}
+
+	if err = cmdHandle.Start(); err != nil {
+		d.writeLog(f, "starting command")
+		return voldriver.MountResponse{}, fmt.Errorf(fmt.Sprintf("starting command"), err)
+	}
+
+	if err = cmdHandle.Wait(); err != nil {
+		d.writeLog(f, "waiting for command")
+		return voldriver.MountResponse{}, fmt.Errorf(fmt.Sprintf("waiting for command"), err)
+	}
 
 	mountPoint := voldriver.MountResponse{config.MountPoint}
-
-	// jsonBlob, err := json.Marshal(mountPoint)
-	// if err != nil {
-	// 	panic("Error Marshaling the mount point")
-	// }
-	//fmt.Println(string(jsonBlob))
 
 	return mountPoint, nil
 }
