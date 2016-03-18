@@ -1,6 +1,8 @@
 package cephlocal_test
 
 import (
+	"fmt"
+	"io"
 	"testing"
 	"time"
 
@@ -20,6 +22,17 @@ func TestCephdriver(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Cephlocal Suite")
 }
+
+// testing support types:
+
+type errCloser struct{ io.Reader }
+
+func (errCloser) Close() error                     { return nil }
+func (errCloser) Read(p []byte) (n int, err error) { return 0, fmt.Errorf("any") }
+
+type stringCloser struct{ io.Reader }
+
+func (stringCloser) Close() error { return nil }
 
 // var _ = SynchronizedBeforeSuite(func() []byte {
 // 	var err error

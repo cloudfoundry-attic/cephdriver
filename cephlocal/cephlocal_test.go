@@ -1,7 +1,11 @@
 package cephlocal_test
 
 import (
+	"bytes"
+	"fmt"
+
 	"github.com/cloudfoundry-incubator/cephdriver/cephlocal"
+	"github.com/cloudfoundry-incubator/cephdriver/cephlocal/cephfakes"
 	"github.com/cloudfoundry-incubator/volman/voldriver"
 	"github.com/cloudfoundry-incubator/volman/volmanfakes"
 	. "github.com/onsi/ginkgo"
@@ -13,106 +17,298 @@ import (
 var _ = Describe("cephlocal", func() {
 
 	var (
-		driver     *cephlocal.LocalDriver
-		fakeExec   *volmanfakes.FakeExec
-		fakeCmd    *volmanfakes.FakeCmd
-		testLogger lager.Logger
-
-		volumeName      string
-		localMountPoint string
+		driver         *cephlocal.LocalDriver
+		fakeInvoker    *cephfakes.FakeInvoker
+		fakeSystemUtil *cephfakes.FakeSystemUtil
+		testLogger     lager.Logger
 	)
 
 	BeforeEach(func() {
-		fakeExec = new(volmanfakes.FakeExec)
-		fakeCmd = new(volmanfakes.FakeCmd)
-
-		driver = cephlocal.NewLocalDriverWithExec(fakeExec)
+		fakeInvoker = new(cephfakes.FakeInvoker)
+		fakeSystemUtil = new(cephfakes.FakeSystemUtil)
+		driver = cephlocal.NewLocalDriverWithInvokerAndSystemUtil(fakeInvoker, fakeSystemUtil)
 		testLogger = lagertest.NewTestLogger("CephdriverTest")
+	})
+
+	Describe("Create and Get", func() {
+
+		var (
+			createResponse voldriver.ErrorResponse
+			opts           map[string]interface{}
+		)
+		Context("when creating a volume", func() {
+			Context("when successful", func() {
+				BeforeEach(func() {
+					opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "localMountPoint": "some-localmountpoint", "remoteMountPoint": "some-remote-mountpoint"}
+					createRequest := voldriver.CreateRequest{Name: "some-volume-name", Opts: opts}
+					createResponse = driver.Create(testLogger, createRequest)
+				})
+				It("should not error", func() {
+					Expect(createResponse.Err).To(Equal(""))
+				})
+				It("should be able to retrieve volume", func() {
+					getResponse := driver.Get(testLogger, voldriver.GetRequest{Name: "some-volume-name"})
+					Expect(getResponse.Err).To(Equal(""))
+					Expect(getResponse.Volume.Name).To(Equal("some-volume-name"))
+					Expect(getResponse.Volume.Mountpoint).To(Equal(""))
+				})
+
+			})
+			Context("when unsuccessful", func() {
+				Context("when missing opts params", func() {
+					BeforeEach(func() {
+						opts = map[string]interface{}{}
+					})
+					It("should error with missing remoteMountPoint", func() {
+						opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "localMountPoint": "some-localmountpoint"}
+						createRequest := voldriver.CreateRequest{Name: "some-volume-name", Opts: opts}
+						createResponse = driver.Create(testLogger, createRequest)
+						Expect(createResponse.Err).To(Equal("Missing mandatory 'remoteMountPoint' field in 'Opts'"))
+					})
+					It("should error with missing localMountPoint", func() {
+						opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "remoteMountPoint": "some-remotemountpoint"}
+						createRequest := voldriver.CreateRequest{Name: "some-volume-name", Opts: opts}
+						createResponse = driver.Create(testLogger, createRequest)
+						Expect(createResponse.Err).To(Equal("Missing mandatory 'localMountPoint' field in 'Opts'"))
+					})
+					It("should error with missing keyring", func() {
+						opts = map[string]interface{}{"ip": "some-ip", "remoteMountPoint": "some-remotemountpoint", "localMountPoint": "some-localmoutnpoint"}
+						createRequest := voldriver.CreateRequest{Name: "some-volume-name", Opts: opts}
+						createResponse = driver.Create(testLogger, createRequest)
+						Expect(createResponse.Err).To(Equal("Missing mandatory 'keyring' field in 'Opts'"))
+					})
+					It("should error with missing ip", func() {
+						opts = map[string]interface{}{"keyring": "some-keyring", "remoteMountPoint": "some-remotemountpoint", "localMountPoint": "some-localmoutnpoint"}
+						createRequest := voldriver.CreateRequest{Name: "some-volume-name", Opts: opts}
+						createResponse = driver.Create(testLogger, createRequest)
+						Expect(createResponse.Err).To(Equal("Missing mandatory 'ip' field in 'Opts'"))
+					})
+					It("should not be able to retrieve volume", func() {
+						getResponse := driver.Get(testLogger, voldriver.GetRequest{Name: "some-volume-name"})
+						Expect(getResponse.Err).To(Equal("Volume 'some-volume-name' not found"))
+					})
+				})
+			})
+			Context("when volume already exists", func() {
+				BeforeEach(func() {
+					opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "localMountPoint": "some-localmountpoint", "remoteMountPoint": "some-remote-mountpoint"}
+					createRequest := voldriver.CreateRequest{Name: "some-volume-name", Opts: opts}
+					createResponse = driver.Create(testLogger, createRequest)
+					Expect(createResponse.Err).To(Equal(""))
+				})
+				It("fails when given different metadata.", func() {
+					opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "localMountPoint": "some-localmountpoint", "remoteMountPoint": "someother-remote-mountpoint"}
+					createRequest := voldriver.CreateRequest{Name: "some-volume-name", Opts: opts}
+					createResponse = driver.Create(testLogger, createRequest)
+					Expect(createResponse.Err).To(Equal("Volume 'some-volume-name' already exists with different Opts"))
+				})
+				It("succeeds when given same metadata", func() {
+					opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "localMountPoint": "some-localmountpoint", "remoteMountPoint": "some-remote-mountpoint"}
+					createRequest := voldriver.CreateRequest{Name: "some-volume-name", Opts: opts}
+					createResponse = driver.Create(testLogger, createRequest)
+					Expect(createResponse.Err).To(Equal(""))
+				})
+			})
+		})
+
 	})
 
 	Describe(".Mount", func() {
 		var (
-			mountResponse voldriver.MountResponse
+			mountResponse  voldriver.MountResponse
+			volumeName     string
+			createResponse voldriver.ErrorResponse
+			opts           map[string]interface{}
 		)
-
-		BeforeEach(func() {
-			volumeName = "volume-name"
-			localMountPoint = "/local/mount/point"
-
-			createRequest := voldriver.CreateRequest{
-				Name: volumeName,
-				Opts: map[string]interface{}{
-					"ip":                "127.0.0.1",
-					"port":              "6789",
-					"key-ring":          "a-key-ring-string",
-					"remote-mountpoint": "/remote/server/file/to/be/mounted",
-					"local-mountpoint":  localMountPoint,
-				},
-			}
-			createResponse := driver.Create(testLogger, createRequest)
-			Expect(createResponse.Err).To(Equal(""))
-		})
-
-		JustBeforeEach(func() {
-			mountResponse = driver.Mount(testLogger, voldriver.MountRequest{})
-		})
-
-		Context("when there are no errors", func() {
-			JustBeforeEach(func() {
-				Expect(mountResponse.Err).To(Equal(""))
+		Context("when there is a created/attached volume", func() {
+			BeforeEach(func() {
+				volumeName = "volume-name"
+				opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "localMountPoint": "some-localmountpoint", "remoteMountPoint": "some-remote-mountpoint"}
+				createRequest := voldriver.CreateRequest{Name: volumeName, Opts: opts}
+				createResponse = driver.Create(testLogger, createRequest)
+				Expect(createResponse.Err).To(Equal(""))
 			})
 
-			It("properly invokes the ceph-fuse executable", func() {
-				Expect(fakeExec.CommandCallCount()).To(Equal(1))
-				command, _ := fakeExec.CommandArgsForCall(0)
-				Expect(command).To(Equal("ceph-fuse"))
+			It("should report an error for volume name mismatch", func() {
+				mountRequest := voldriver.MountRequest{Name: "garbage"}
+				mountResponse = driver.Mount(testLogger, mountRequest)
+				Expect(mountResponse.Err).To(Equal("Volume 'garbage' not found"))
+				Expect(mountResponse.Mountpoint).To(Equal(""))
 			})
 
-			It("returns a proper mountResponse", func() {
-				Expect(mountResponse.Mountpoint).To(Equal(localMountPoint))
+			It("should report an error if keyfile creation errors", func() {
+				fakeSystemUtil.WriteFileReturns(fmt.Errorf("error writing file"))
+				mountRequest := voldriver.MountRequest{Name: volumeName}
+				mountResponse = driver.Mount(testLogger, mountRequest)
+				Expect(mountResponse.Err).To(Equal(fmt.Sprintf("Error mounting '%s' (error writing file)", volumeName)))
 			})
-		})
 
-		Context("errors", func() {
-			Context("from the ceph fuse executable", func() {
+			It("should report an error if CLI invocation fails", func() {
+				fakeInvoker.InvokeReturns(fmt.Errorf("invocation fails"))
+				mountRequest := voldriver.MountRequest{Name: volumeName}
+				mountResponse = driver.Mount(testLogger, mountRequest)
+				Expect(mountResponse.Err).To(Equal(fmt.Sprintf("Error mounting '%s' (invocation fails)", volumeName)))
+			})
+
+			Context("when the mount completes successfully", func() {
 				BeforeEach(func() {
+					fakeInvoker.InvokeReturns(nil)
+					mountRequest := voldriver.MountRequest{Name: volumeName}
+					mountResponse = driver.Mount(testLogger, mountRequest)
+				})
+				It("should report no errors", func() {
+					Expect(mountResponse.Err).To(Equal(""))
+				})
+				It("returns a proper mountResponse", func() {
+					Expect(mountResponse.Mountpoint).To(Equal("some-localmountpoint"))
+				})
+				It("creates a keyfile", func() {
+					Expect(fakeSystemUtil.WriteFileCallCount()).To(Equal(1))
+				})
+				It("can get the volume and it is mounted path", func() {
+					getResponse := driver.Get(testLogger, voldriver.GetRequest{Name: volumeName})
+					Expect(getResponse.Err).To(Equal(""))
+					Expect(getResponse.Volume.Mountpoint).To(Equal("some-localmountpoint"))
+				})
+			})
+			Context("when already mounted", func() {
+				It("should return mountpoint", func() {
+
+					mountRequest := voldriver.MountRequest{Name: volumeName}
+					mountResponse = driver.Mount(testLogger, mountRequest)
+					mountResponse = driver.Mount(testLogger, mountRequest)
+
+					Expect(mountResponse.Mountpoint).To(Equal("some-localmountpoint"))
+
+					By("not calling ceph executable again.")
+					Expect(fakeInvoker.InvokeCallCount()).To(Equal(1))
+				})
+			})
+
+		})
+	})
+
+	Describe(".Unmount", func() {
+		var (
+			unmountResponse voldriver.ErrorResponse
+			volumeName      string
+			createResponse  voldriver.ErrorResponse
+			opts            map[string]interface{}
+		)
+		Context("when there is a created/attached volume", func() {
+			BeforeEach(func() {
+				volumeName = "volume-name"
+				opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "localMountPoint": "some-localmountpoint", "remoteMountPoint": "some-remote-mountpoint"}
+				createRequest := voldriver.CreateRequest{Name: volumeName, Opts: opts}
+				createResponse = driver.Create(testLogger, createRequest)
+				Expect(createResponse.Err).To(Equal(""))
+			})
+
+			It("should report an error for volume name mismatch", func() {
+				unmountRequest := voldriver.UnmountRequest{Name: "garbage"}
+				unmountResponse = driver.Unmount(testLogger, unmountRequest)
+				Expect(unmountResponse.Err).To(Equal("Volume 'garbage' is unknown"))
+			})
+
+			It("should error when volume is not mounted", func() {
+				unmountRequest := voldriver.UnmountRequest{Name: volumeName}
+				unmountResponse = driver.Unmount(testLogger, unmountRequest)
+
+				Expect(unmountResponse.Err).To(Equal(fmt.Sprintf("Volume '%s' not mounted", volumeName)))
+			})
+			It("should error when volume is not created", func() {
+				unmountRequest := voldriver.UnmountRequest{Name: "non-existent-volume"}
+				unmountResponse = driver.Unmount(testLogger, unmountRequest)
+				Expect(unmountResponse.Err).To(Equal(fmt.Sprintf("Volume '%s' is unknown", "non-existent-volume")))
+			})
+
+			Context("when volume mounted", func() {
+				BeforeEach(func() {
+					mountRequest := voldriver.MountRequest{Name: volumeName}
+					mountResponse := driver.Mount(testLogger, mountRequest)
+					Expect(mountResponse.Err).To(Equal(""))
+					Expect(mountResponse.Mountpoint).To(Equal("some-localmountpoint"))
 
 				})
+				It("should report an error if remove config file fails", func() {
+					fakeSystemUtil.RemoveReturns(fmt.Errorf("file deletion failed"))
+					unmountRequest := voldriver.UnmountRequest{Name: volumeName}
+					unmountResponse = driver.Unmount(testLogger, unmountRequest)
+					Expect(unmountResponse.Err).To(Equal(fmt.Sprintf("Error unmounting '%s' (file deletion failed)", volumeName)))
+				})
+				It("should report an error if CLI invocation fails", func() {
+					fakeInvoker.InvokeReturns(fmt.Errorf("invocation fails"))
+					unmountRequest := voldriver.UnmountRequest{Name: volumeName}
+					unmountResponse = driver.Unmount(testLogger, unmountRequest)
+					Expect(unmountResponse.Err).To(Equal(fmt.Sprintf("Error unmounting '%s' (invocation fails)", volumeName)))
+				})
 
-				It("sets the error on the mountResponse", func() {})
+				Context("when umount successful", func() {
+					BeforeEach(func() {
+						fakeInvoker.InvokeReturns(nil)
+						unmountRequest := voldriver.UnmountRequest{Name: volumeName}
+						unmountResponse = driver.Unmount(testLogger, unmountRequest)
+					})
+
+					It("completes unmount successfully when mounted", func() {
+						Expect(unmountResponse.Err).To(Equal(""))
+					})
+					It("only gets volume name, without Mountpoint", func() {
+						getResponse := driver.Get(testLogger, voldriver.GetRequest{Name: volumeName})
+						Expect(getResponse.Err).To(Equal(""))
+						Expect(getResponse.Volume.Name).To(Equal(volumeName))
+						Expect(getResponse.Volume.Mountpoint).To(Equal(""))
+					})
+					It("removes keyfile", func() {
+						Expect(fakeSystemUtil.RemoveCallCount()).To(Equal(1))
+					})
+				})
 			})
 		})
 	})
 })
 
-//var cephdriverPath string
-// ip         string
-// keyring    string
-// mountpoint string
+var _ = Describe("RealInvoker", func() {
+	var (
+		subject    cephlocal.Invoker
+		fakeCmd    *volmanfakes.FakeCmd
+		fakeExec   *volmanfakes.FakeExec
+		testLogger = lagertest.NewTestLogger("InvokerTest")
+		cmd        = "some-fake-command"
+		args       = []string{"fake-args-1"}
+	)
+	Context("when invoking an executable", func() {
+		BeforeEach(func() {
+			fakeExec = new(volmanfakes.FakeExec)
+			fakeCmd = new(volmanfakes.FakeCmd)
+			fakeExec.CommandReturns(fakeCmd)
+			subject = cephlocal.NewRealInvokerWithExec(fakeExec)
+		})
 
-// fakeExec.CommandReturns(fakeCmd)
+		It("should report an error when unable to attach to stdout", func() {
+			fakeCmd.StdoutPipeReturns(errCloser{bytes.NewBufferString("")}, fmt.Errorf("unable to attach to stdout"))
+			err := subject.Invoke(testLogger, cmd, args)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(Equal("unable to attach to stdout"))
+		})
 
-// keyring = "/tmp/test-keyring"
-// ip = "192.168.100.50"
-// mountpoint = "/mnt/test-mount"
+		It("should report an error when unable to start binary", func() {
+			fakeCmd.StdoutPipeReturns(errCloser{bytes.NewBufferString("cmdfails")}, nil)
+			fakeCmd.StartReturns(fmt.Errorf("unable to start binary"))
+			err := subject.Invoke(testLogger, cmd, args)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(Equal("unable to start binary"))
+		})
+		It("should report an error when executing the driver binary fails", func() {
+			fakeCmd.WaitReturns(fmt.Errorf("executing driver binary fails"))
 
-// config := &cephdriver.MountConfig{Keyring: keyring, MountPoint: mountpoint, IP: ip}
-
-// configJsonBlob, err := json.Marshal(config)
-// Expect(err).NotTo(HaveOccurred())
-
-// mountRequest := voldriver.MountRequest{Name: "test"}
-// mountResponse := driver.Mount(testLogger, mountRequest)
-
-// Expect(err).NotTo(HaveOccurred())
-// Expect(fakeExec.CommandCallCount()).To(Equal(1))
-// executable, args := fakeExec.CommandArgsForCall(0)
-// Expect(executable).To(Equal("ceph-fuse"))
-// Expect(len(args)).To(Equal(5))
-// Expect(args[0]).To(Equal("-k"))
-// // unable to test arg[1] as it is a keyring file generated from the supplied content
-// Expect(args[2]).To(Equal("-m"))
-// Expect(args[3]).To(Equal(fmt.Sprintf("%s:6789", ip)))
-// Expect(args[4]).To(Equal(mountpoint))
-
-// Expect(fakeCmd.StartCallCount()).To(Equal(1))
+			err := subject.Invoke(testLogger, cmd, args)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(Equal("executing driver binary fails"))
+		})
+		It("should successfully invoke cli", func() {
+			err := subject.Invoke(testLogger, cmd, args)
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+})
