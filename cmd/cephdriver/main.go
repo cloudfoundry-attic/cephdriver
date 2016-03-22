@@ -1,104 +1,115 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
+	"flag"
 	"os"
 
 	"github.com/cloudfoundry-incubator/cephdriver/cephlocal"
-	"github.com/cloudfoundry-incubator/volman/voldriver"
-	flags "github.com/jessevdk/go-flags"
+	"github.com/cloudfoundry-incubator/cephdriver/cephlocal/cephfakes"
+	cf_debug_server "github.com/cloudfoundry-incubator/cf-debug-server"
+	cf_lager "github.com/cloudfoundry-incubator/cf-lager"
+
+	"github.com/cloudfoundry-incubator/volman/voldriver/driverhttp"
+	"github.com/pivotal-golang/lager"
+	"github.com/tedsuo/ifrit"
+	"github.com/tedsuo/ifrit/grouper"
+	"github.com/tedsuo/ifrit/http_server"
+	"github.com/tedsuo/ifrit/sigmon"
 )
 
-type InfoCommand struct {
-	Info func() `short:"i" long:"info" description:"Print program information"`
+var atAddress = flag.String(
+	"listenAddr",
+	"0.0.0.0:9750",
+	"host:port to serve volume management functions",
+)
+
+var driversPath = flag.String(
+	"driversPath",
+	"",
+	"Path to directory where drivers are installed",
+)
+
+var transport = flag.String(
+	"transport",
+	"tcp",
+	"Transport protocol to transmit HTTP over",
+)
+var isUnit = flag.Bool(
+	"unit",
+	false,
+	"Set to true for unit testing with fakes",
+)
+
+func init() {
+	// no command line parsing can happen here in go 1.6git soll
 }
-
-func (x *InfoCommand) Execute(args []string) error {
-	cephFsdriver := cephlocal.NewLocalDriver()
-
-	response, err := cephFsdriver.Info(nil)
-	if err != nil {
-		return err
-	}
-	printJson(response)
-	return nil
-}
-
-type MountCommand struct {
-	Volume string `short:"v" long:"volume" description:"ID of the volume to mount"`
-}
-
-func (x *MountCommand) Execute(args []string) error {
-	cephFsdriver := cephlocal.NewLocalDriver()
-
-	response, err := cephFsdriver.Mount(nil, voldriver.MountRequest{x.Volume, ""})
-	if err != nil {
-		return err
-	}
-	printJson(response)
-	return nil
-}
-
-// type UnmountCommand struct {
-// 	Volume string `short:"v" long:"volume" description:"ID of the volume Id to unmount"`
-// }
-
-// func (x *UnmountCommand) Execute(args []string) error {
-// 	cephFsdriver := cephlocal.NewLocalDriver()
-
-// 	err := cephFsdriver.Unmount(nil, voldriver.UnmountRequest{x.Volume})
-// 	if err != nil {
-// 		return err
-// 	}
-// 	printJson(struct{}{})
-// 	return nil
-// }
-
-type Options struct{}
 
 func main() {
-	var infoCmd InfoCommand
-	var mountCmd MountCommand
-	//var unmountCmd UnmountCommand
-	var options Options
-	var parser = flags.NewParser(&options, flags.Default)
+	parseCommandLine()
 
-	parser.AddCommand("info",
-		"Print Info",
-		"The info command print the driver name and version.",
-		&infoCmd)
-	parser.AddCommand("mount",
-		"Mount Volume",
-		"Mount a volume Id to a path - returning the path.",
-		&mountCmd)
-	// parser.AddCommand("unmount",
-	// 	"Unnount Volume",
-	// 	"Unmount a volume Id",
-	// 	&unmountCmd)
-	_, err := parser.Parse()
+	var withLogger lager.Logger
+	var logTap *lager.ReconfigurableSink
 
+	var cephDriverServer ifrit.Runner
+
+	withLogger, logTap = logger(*transport)
+	cephDriverServer = createCephDriverServer(withLogger, *atAddress, *driversPath, *isUnit, *transport)
+
+	servers := grouper.Members{
+		{"cephdriver-server", cephDriverServer},
+	}
+	if dbgAddr := cf_debug_server.DebugAddress(flag.CommandLine); dbgAddr != "" {
+		servers = append(grouper.Members{
+			{"debug-server", cf_debug_server.Runner(dbgAddr, logTap)},
+		}, servers...)
+	}
+	process := ifrit.Invoke(processRunnerFor(servers))
+	untilTerminated(withLogger, process)
+}
+
+func exitOnFailure(logger lager.Logger, err error) {
 	if err != nil {
-		//		panic(err)
-		os.Exit(1)
+		logger.Error("fatal-err..aborting", err)
+		panic(err.Error())
 	}
 }
 
-func exists(path string) (bool, error) {
-	_, err := os.Stat(path)
-	if err == nil {
-		return true, nil
-	}
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return true, err
+func untilTerminated(logger lager.Logger, process ifrit.Process) {
+	err := <-process.Wait()
+	exitOnFailure(logger, err)
 }
 
-func printJson(response interface{}) {
-	jsonBlob, err := json.Marshal(response)
-	if err != nil {
-		panic("Error Marshaling the driver")
+func processRunnerFor(servers grouper.Members) ifrit.Runner {
+	return sigmon.New(grouper.NewOrdered(os.Interrupt, servers))
+}
+
+func createCephDriverServer(logger lager.Logger, atAddress string, driversPath string, isUnit bool, transport string) ifrit.Runner {
+	logger.Info("started")
+	defer logger.Info("ends")
+	var client *cephlocal.LocalDriver
+	if isUnit == true {
+		fakeInvoker := new(cephfakes.FakeInvoker)
+		fakeSystemUtil := new(cephfakes.FakeSystemUtil)
+		client = cephlocal.NewLocalDriverWithInvokerAndSystemUtil(fakeInvoker, fakeSystemUtil)
+	} else {
+		client = cephlocal.NewLocalDriver()
 	}
-	fmt.Println(string(jsonBlob))
+	handler, err := driverhttp.NewHandler(logger, client)
+	exitOnFailure(logger, err)
+	if transport == "tcp" {
+		return http_server.New(atAddress, handler)
+	}
+	return http_server.NewUnixServer(atAddress, handler)
+}
+
+func logger(transport string) (lager.Logger, *lager.ReconfigurableSink) {
+	if transport == "tcp" {
+		return cf_lager.New("cephdriverServer")
+	}
+	return cf_lager.New("cephdriverUnixServer")
+}
+func parseCommandLine() {
+	cf_lager.AddFlags(flag.CommandLine)
+	cf_debug_server.AddFlags(flag.CommandLine)
+	flag.Parse()
 }
