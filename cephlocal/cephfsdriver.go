@@ -193,20 +193,54 @@ func (d *LocalDriver) Unmount(logger lager.Logger, unmountRequest voldriver.Unmo
 		logger.Info("unmount-volume-not-mounted", lager.Data{"volume_name": unmountRequest.Name})
 		return voldriver.ErrorResponse{Err: fmt.Sprintf("Volume '%s' not mounted", unmountRequest.Name)}
 	}
+	return d.unmount(logger, volume, unmountRequest.Name)
+}
+
+func (d *LocalDriver) Remove(logger lager.Logger, removeRequest voldriver.RemoveRequest) voldriver.ErrorResponse {
+	logger = logger.Session("remove", lager.Data{"volume": removeRequest})
+	logger.Info("start")
+	defer logger.Info("end")
+
+	if removeRequest.Name == "" {
+		return voldriver.ErrorResponse{Err: "Missing mandatory 'volume_name'"}
+	}
+
+	var response voldriver.ErrorResponse
+	var vol *volumeMetadata
+	var exists bool
+	if vol, exists = d.volumes[removeRequest.Name]; !exists {
+		logger.Error("failed-volume-removal", fmt.Errorf(fmt.Sprintf("Volume %s not found", removeRequest.Name)))
+		return voldriver.ErrorResponse{fmt.Sprintf("Volume '%s' not found", removeRequest.Name)}
+	}
+
+	if vol.Mounted == true {
+		response = d.unmount(logger, vol, removeRequest.Name)
+		if response.Err != "" {
+			return response
+		}
+	}
+
+	logger.Info("removing-volume", lager.Data{"name": removeRequest.Name})
+	delete(d.volumes, removeRequest.Name)
+	return voldriver.ErrorResponse{}
+}
+
+func (d *LocalDriver) unmount(logger lager.Logger, volume *volumeMetadata, volumeName string) voldriver.ErrorResponse{
 	logger.Info("umount-found-volume", lager.Data{"metadata": volume})
 	cmdArgs := []string{volume.LocalMountPoint}
 	if err := d.useInvoker.Invoke(logger, "unmount", cmdArgs); err != nil {
 		logger.Error("Error invoking CLI", err)
-		return voldriver.ErrorResponse{Err: fmt.Sprintf("Error unmounting '%s' (%s)", unmountRequest.Name, err.Error())}
+		return voldriver.ErrorResponse{Err: fmt.Sprintf("Error unmounting '%s' (%s)", volumeName, err.Error())}
 	}
 	volume.Mounted = false
 	err := d.useSystemUtil.Remove(volume.KeyPath)
 	if err != nil {
 		logger.Error("Error deleting file", err)
-		return voldriver.ErrorResponse{Err: fmt.Sprintf("Error unmounting '%s' (%s)", unmountRequest.Name, err.Error())}
+		return voldriver.ErrorResponse{Err: fmt.Sprintf("Error unmounting '%s' (%s)", volumeName, err.Error())}
 	}
 	return voldriver.ErrorResponse{}
 }
+
 
 func (d *LocalDriver) callCeph(logger lager.Logger, args []string) error {
 	cmd := "ceph-fuse"
