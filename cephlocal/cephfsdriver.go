@@ -158,7 +158,7 @@ func (d *LocalDriver) Mount(logger lager.Logger, mountRequest voldriver.MountReq
 	logger.Info("mounting-volume-"+mountRequest.Name, lager.Data{"volume": volume})
 	content := []byte(volume.Keyring)
 
-	volume.KeyPath = "/tmp/keypath_" + string(time.Now().UnixNano())
+	volume.KeyPath = fmt.Sprintf("/tmp/keypath_%#v", time.Now().UnixNano())
 
 	err := d.useSystemUtil.WriteFile(volume.KeyPath, content, 0777)
 	if err != nil {
