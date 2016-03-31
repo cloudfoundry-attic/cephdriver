@@ -67,7 +67,6 @@ var _ = BeforeEach(func() {
 			driverPath,
 			"-listenAddr", fmt.Sprintf("0.0.0.0:%d", driverServerPort),
 			"-debugAddr", debugServerAddress2,
-			"-unit", "true",
 		),
 		StartCheck: "cephdriverServer.started",
 	})
