@@ -16,7 +16,7 @@ var _ = Describe("Ceph Driver Certification", func() {
 			Expect(err).NotTo(HaveOccurred())
 			volumeName := "ceph-volume-name_" + uuid.String()
 			volumeId := "ceph-volume-id_" + uuid.String()
-			opts := map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "localMountPoint": "some-local-mountpoint-"+volumeId, "remoteMountPoint": "some-remote-mountpoint-"+volumeId}
+			opts := map[string]interface{}{"keyring": keyringFileContents, "ip": clusterIp, "localMountPoint": tmpDriversPath+"/_cephdriver-"+volumeId, "remoteMountPoint":"unused"}
 			return volumeName, opts
 		}
 

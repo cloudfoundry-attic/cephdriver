@@ -26,6 +26,9 @@ var debugServerAddress2 string
 var driverRunner *ginkgomon.Runner
 var tmpDriversPath string
 
+var keyringFileContents string
+var clusterIp string
+
 func TestVolman(t *testing.T) {
 	// these integration tests can take a bit, especially under load;
 	// 1 second is too harsh
@@ -47,6 +50,10 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	path := string(pathsByte)
 	volmanPath = strings.Split(path, ",")[0]
 	driverPath = strings.Split(path, ",")[1]
+
+	// read config files
+	keyringFileContents = os.Getenv("CEPH_KEYRING")
+	clusterIp = os.Getenv("CEPH_CLUSTER_IP")
 })
 
 var _ = BeforeEach(func() {
