@@ -218,6 +218,9 @@ var _ = Describe("cephlocal", func() {
 					BeforeEach(func() {
 						fakeInvoker.InvokeReturns(nil)
 						unmountSuccessful(testLogger, driver, volumeName)
+						Expect(fakeInvoker.InvokeCallCount()).To(Equal(2)) // mount and umount commands
+						_, cmd, _ := fakeInvoker.InvokeArgsForCall(1)
+						Expect(cmd).To(Equal("umount"))
 					})
 					It("only gets volume name, without Mountpoint", func() {
 						getResponse := getSuccessful(testLogger, driver, volumeName)

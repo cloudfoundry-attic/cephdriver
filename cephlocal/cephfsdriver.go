@@ -225,10 +225,10 @@ func (d *LocalDriver) Remove(logger lager.Logger, removeRequest voldriver.Remove
 	return voldriver.ErrorResponse{}
 }
 
-func (d *LocalDriver) unmount(logger lager.Logger, volume *volumeMetadata, volumeName string) voldriver.ErrorResponse{
+func (d *LocalDriver) unmount(logger lager.Logger, volume *volumeMetadata, volumeName string) voldriver.ErrorResponse {
 	logger.Info("umount-found-volume", lager.Data{"metadata": volume})
 	cmdArgs := []string{volume.LocalMountPoint}
-	if err := d.useInvoker.Invoke(logger, "unmount", cmdArgs); err != nil {
+	if err := d.useInvoker.Invoke(logger, "umount", cmdArgs); err != nil {
 		logger.Error("Error invoking CLI", err)
 		return voldriver.ErrorResponse{Err: fmt.Sprintf("Error unmounting '%s' (%s)", volumeName, err.Error())}
 	}
