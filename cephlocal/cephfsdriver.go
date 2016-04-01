@@ -304,7 +304,7 @@ func NewRealInvokerWithExec(useExec system.Exec) Invoker {
 func (r *realInvoker) Invoke(logger lager.Logger, executable string, cmdArgs []string) error {
 	cmdHandle := r.useExec.Command(executable, cmdArgs...)
 
-	_, err := cmdHandle.StdoutPipe()
+	stdout, err := cmdHandle.StdoutPipe()
 	if err != nil {
 		logger.Error("unable to get stdout", err)
 		return err
@@ -315,8 +315,13 @@ func (r *realInvoker) Invoke(logger lager.Logger, executable string, cmdArgs []s
 		return err
 	}
 
+	var b []byte
+	if b, err = ioutil.ReadAll(stdout); err != nil {
+		logger.Error("reading-stdout", err)
+	}
+
 	if err = cmdHandle.Wait(); err != nil {
-		logger.Error("waiting for command", err)
+		logger.Error(fmt.Sprintf("command-exited: %s", b), err)
 		return err
 	}
 
