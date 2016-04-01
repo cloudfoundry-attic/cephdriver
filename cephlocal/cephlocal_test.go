@@ -235,8 +235,10 @@ var _ = Describe("cephlocal", func() {
 						getResponse := getSuccessful(testLogger, driver, volumeName)
 						Expect(getResponse.Volume.Mountpoint).To(Equal(""))
 					})
-					It("removes keyfile", func() {
-						Expect(fakeSystemUtil.RemoveCallCount()).To(Equal(1))
+					It("removes keyfile and local mountpoint directory", func() {
+						Expect(fakeSystemUtil.RemoveCallCount()).To(Equal(2))
+						mountPointPath := fakeSystemUtil.RemoveArgsForCall(1)
+						Expect(mountPointPath).To(Equal("some-localmountpoint"))
 					})
 				})
 			})
@@ -284,7 +286,9 @@ var _ = Describe("cephlocal", func() {
 					})
 					Expect(removeResponse.Err).To(Equal(""))
 					getUnsuccessful(testLogger, driver, volumeName)
-					Expect(fakeSystemUtil.RemoveCallCount()).To(Equal(1))
+					Expect(fakeSystemUtil.RemoveCallCount()).To(Equal(2))
+					mountPointPath := fakeSystemUtil.RemoveArgsForCall(1)
+					Expect(mountPointPath).To(Equal("some-localmountpoint"))
 				})
 				Context("when unmount fails", func() {
 					BeforeEach(func() {

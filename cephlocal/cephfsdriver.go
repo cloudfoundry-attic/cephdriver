@@ -233,6 +233,7 @@ func (d *LocalDriver) Remove(logger lager.Logger, removeRequest voldriver.Remove
 
 func (d *LocalDriver) unmount(logger lager.Logger, volume *volumeMetadata, volumeName string) voldriver.ErrorResponse {
 	logger.Info("umount-found-volume", lager.Data{"metadata": volume})
+
 	cmdArgs := []string{volume.LocalMountPoint}
 	if err := d.useInvoker.Invoke(logger, "umount", cmdArgs); err != nil {
 		logger.Error("Error invoking CLI", err)
@@ -242,6 +243,11 @@ func (d *LocalDriver) unmount(logger lager.Logger, volume *volumeMetadata, volum
 	err := d.useSystemUtil.Remove(volume.KeyPath)
 	if err != nil {
 		logger.Error("Error deleting file", err)
+		return voldriver.ErrorResponse{Err: fmt.Sprintf("Error unmounting '%s' (%s)", volumeName, err.Error())}
+	}
+	err = d.useSystemUtil.Remove(volume.LocalMountPoint)
+	if err != nil {
+		logger.Error("Error deleting local mountpoint", err)
 		return voldriver.ErrorResponse{Err: fmt.Sprintf("Error unmounting '%s' (%s)", volumeName, err.Error())}
 	}
 	return voldriver.ErrorResponse{}
