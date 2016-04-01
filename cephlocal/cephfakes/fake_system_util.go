@@ -9,6 +9,15 @@ import (
 )
 
 type FakeSystemUtil struct {
+	MkdirAllStub        func(path string, perm os.FileMode) error
+	mkdirAllMutex       sync.RWMutex
+	mkdirAllArgsForCall []struct {
+		path string
+		perm os.FileMode
+	}
+	mkdirAllReturns struct {
+		result1 error
+	}
 	WriteFileStub        func(filename string, data []byte, perm os.FileMode) error
 	writeFileMutex       sync.RWMutex
 	writeFileArgsForCall []struct {
@@ -27,6 +36,39 @@ type FakeSystemUtil struct {
 	removeReturns struct {
 		result1 error
 	}
+}
+
+func (fake *FakeSystemUtil) MkdirAll(path string, perm os.FileMode) error {
+	fake.mkdirAllMutex.Lock()
+	fake.mkdirAllArgsForCall = append(fake.mkdirAllArgsForCall, struct {
+		path string
+		perm os.FileMode
+	}{path, perm})
+	fake.mkdirAllMutex.Unlock()
+	if fake.MkdirAllStub != nil {
+		return fake.MkdirAllStub(path, perm)
+	} else {
+		return fake.mkdirAllReturns.result1
+	}
+}
+
+func (fake *FakeSystemUtil) MkdirAllCallCount() int {
+	fake.mkdirAllMutex.RLock()
+	defer fake.mkdirAllMutex.RUnlock()
+	return len(fake.mkdirAllArgsForCall)
+}
+
+func (fake *FakeSystemUtil) MkdirAllArgsForCall(i int) (string, os.FileMode) {
+	fake.mkdirAllMutex.RLock()
+	defer fake.mkdirAllMutex.RUnlock()
+	return fake.mkdirAllArgsForCall[i].path, fake.mkdirAllArgsForCall[i].perm
+}
+
+func (fake *FakeSystemUtil) MkdirAllReturns(result1 error) {
+	fake.MkdirAllStub = nil
+	fake.mkdirAllReturns = struct {
+		result1 error
+	}{result1}
 }
 
 func (fake *FakeSystemUtil) WriteFile(filename string, data []byte, perm os.FileMode) error {

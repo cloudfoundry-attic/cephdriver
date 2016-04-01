@@ -1,8 +1,6 @@
 package acceptance_test
 
 import (
-	"os"
-
 	"github.com/cloudfoundry-incubator/volman/certification"
 	"github.com/nu7hatch/gouuid"
 	. "github.com/onsi/ginkgo"
@@ -20,12 +18,6 @@ var _ = Describe("Ceph Driver Certification", func() {
 
 		volumeInfo := func() (string, map[string]interface{}) {
 			localMountPoint := tmpDriversPath + "/_cephdriver-" + volumeId
-
-			err := os.MkdirAll(localMountPoint, os.ModePerm)
-			if err != nil {
-				panic("failed-creating-localmountpoint")
-			}
-
 			opts := map[string]interface{}{"keyring": keyringFileContents, "ip": clusterIp, "localMountPoint": localMountPoint, "remoteMountPoint": "unused"}
 			return volumeName, opts
 		}

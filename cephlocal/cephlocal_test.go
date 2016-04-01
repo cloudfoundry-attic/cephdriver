@@ -108,9 +108,9 @@ var _ = Describe("cephlocal", func() {
 
 	Describe(".Mount", func() {
 		var (
-			mountResponse  voldriver.MountResponse
-			volumeName     string
-			opts           map[string]interface{}
+			mountResponse voldriver.MountResponse
+			volumeName    string
+			opts          map[string]interface{}
 		)
 		Context("when there is a created/attached volume", func() {
 			BeforeEach(func() {
@@ -144,6 +144,10 @@ var _ = Describe("cephlocal", func() {
 				BeforeEach(func() {
 					fakeInvoker.InvokeReturns(nil)
 					mountSuccessful(testLogger, driver, volumeName)
+
+					Expect(fakeSystemUtil.MkdirAllCallCount()).To(Equal(1))
+					path, _ := fakeSystemUtil.MkdirAllArgsForCall(0)
+					Expect(path).To(Equal("some-localmountpoint"))
 				})
 				It("creates a keyfile", func() {
 					Expect(fakeSystemUtil.WriteFileCallCount()).To(Equal(1))
@@ -200,6 +204,9 @@ var _ = Describe("cephlocal", func() {
 			Context("when volume mounted", func() {
 				BeforeEach(func() {
 					mountSuccessful(testLogger, driver, volumeName)
+
+					_, cmd, _ := fakeInvoker.InvokeArgsForCall(0)
+					Expect(cmd).To(Equal("ceph-fuse"))
 				})
 				It("should report an error if remove config file fails", func() {
 					fakeSystemUtil.RemoveReturns(fmt.Errorf("file deletion failed"))
@@ -217,7 +224,9 @@ var _ = Describe("cephlocal", func() {
 				Context("when umount successful", func() {
 					BeforeEach(func() {
 						fakeInvoker.InvokeReturns(nil)
+
 						unmountSuccessful(testLogger, driver, volumeName)
+
 						Expect(fakeInvoker.InvokeCallCount()).To(Equal(2)) // mount and umount commands
 						_, cmd, _ := fakeInvoker.InvokeArgsForCall(1)
 						Expect(cmd).To(Equal("umount"))
@@ -236,7 +245,7 @@ var _ = Describe("cephlocal", func() {
 
 	Describe(".Remove", func() {
 		const volumeName = "volume-name"
-		var  opts            map[string]interface{}
+		var opts map[string]interface{}
 
 		It("should fail if no volume name provided", func() {
 			removeResponse := driver.Remove(testLogger, voldriver.RemoveRequest{
@@ -277,22 +286,22 @@ var _ = Describe("cephlocal", func() {
 					getUnsuccessful(testLogger, driver, volumeName)
 					Expect(fakeSystemUtil.RemoveCallCount()).To(Equal(1))
 				})
-				Context("when unmount fails",func(){
-					BeforeEach(func(){
+				Context("when unmount fails", func() {
+					BeforeEach(func() {
 						fakeInvoker.InvokeReturns(fmt.Errorf("invocation fails"))
 					})
-					It("returns error",func(){
+					It("returns error", func() {
 						removeResponse := driver.Remove(testLogger, voldriver.RemoveRequest{
 							Name: volumeName,
 						})
-						Expect(removeResponse.Err).To(Equal("Error unmounting '"+ volumeName+ "' (invocation fails)"))
+						Expect(removeResponse.Err).To(Equal("Error unmounting '" + volumeName + "' (invocation fails)"))
 					})
 
 				})
 			})
 		})
 	})
-	
+
 })
 
 var _ = Describe("RealInvoker", func() {
@@ -340,13 +349,13 @@ var _ = Describe("RealInvoker", func() {
 	})
 })
 
-func createSuccessful(logger lager.Logger, driver voldriver.Driver, volumeName string, opts map[string]interface{}){
+func createSuccessful(logger lager.Logger, driver voldriver.Driver, volumeName string, opts map[string]interface{}) {
 	createRequest := voldriver.CreateRequest{Name: volumeName, Opts: opts}
 	createResponse := driver.Create(logger, createRequest)
 	Expect(createResponse.Err).To(Equal(""))
 }
 
-func getUnsuccessful(logger lager.Logger, localDriver voldriver.Driver, volumeName string){
+func getUnsuccessful(logger lager.Logger, localDriver voldriver.Driver, volumeName string) {
 	getResponse := localDriver.Get(logger, voldriver.GetRequest{
 		Name: volumeName,
 	})
@@ -365,7 +374,7 @@ func getSuccessful(logger lager.Logger, localDriver voldriver.Driver, volumeName
 	return getResponse
 }
 
-func mountSuccessful(logger lager.Logger, localDriver voldriver.Driver, volumeName string){
+func mountSuccessful(logger lager.Logger, localDriver voldriver.Driver, volumeName string) {
 	mountResponse := localDriver.Mount(logger, voldriver.MountRequest{
 		Name: volumeName,
 	})

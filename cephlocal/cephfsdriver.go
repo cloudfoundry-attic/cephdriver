@@ -165,8 +165,14 @@ func (d *LocalDriver) Mount(logger lager.Logger, mountRequest voldriver.MountReq
 		logger.Error("Error mounting volume", err)
 		return voldriver.MountResponse{Err: fmt.Sprintf("Error mounting '%s' (%s)", mountRequest.Name, err.Error())}
 	}
-	cmdArgs := []string{"-k", volume.KeyPath, "-m", fmt.Sprintf("%s:6789", volume.IP), volume.LocalMountPoint}
 
+	err = d.useSystemUtil.MkdirAll(volume.LocalMountPoint, os.ModePerm)
+	if err != nil {
+		logger.Error("failed-creating-localmountpoint", err)
+		return voldriver.MountResponse{Err: fmt.Sprintf("Unable to create local mount point for volume '%s'", mountRequest.Name)}
+	}
+
+	cmdArgs := []string{"-k", volume.KeyPath, "-m", fmt.Sprintf("%s:6789", volume.IP), volume.LocalMountPoint}
 	if err := d.callCeph(logger, cmdArgs); err != nil {
 		logger.Error("Error mounting volume", err)
 		return voldriver.MountResponse{Err: fmt.Sprintf("Error mounting '%s' (%s)", mountRequest.Name, err.Error())}
@@ -241,7 +247,6 @@ func (d *LocalDriver) unmount(logger lager.Logger, volume *volumeMetadata, volum
 	return voldriver.ErrorResponse{}
 }
 
-
 func (d *LocalDriver) callCeph(logger lager.Logger, args []string) error {
 	cmd := "ceph-fuse"
 	return d.useInvoker.Invoke(logger, cmd, args)
@@ -250,6 +255,7 @@ func (d *LocalDriver) callCeph(logger lager.Logger, args []string) error {
 //go:generate counterfeiter -o ./cephfakes/fake_system_util.go . SystemUtil
 
 type SystemUtil interface {
+	MkdirAll(path string, perm os.FileMode) error
 	WriteFile(filename string, data []byte, perm os.FileMode) error
 	Remove(string) error
 }
@@ -257,6 +263,10 @@ type realSystemUtil struct{}
 
 func NewRealSystemUtil() SystemUtil {
 	return &realSystemUtil{}
+}
+
+func (f *realSystemUtil) MkdirAll(path string, perm os.FileMode) error {
+	return os.MkdirAll(path, perm)
 }
 
 func (f *realSystemUtil) WriteFile(filename string, data []byte, perm os.FileMode) error {
