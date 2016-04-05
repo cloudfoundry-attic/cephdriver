@@ -43,7 +43,7 @@ var _ = Describe("Cephdriver Cmd test ", func() {
 			cephdriverUnixServerProcess = ginkgomon.Invoke(unixRunner)
 			time.Sleep(time.Millisecond * 1000)
 
-			client = driverhttp.NewRemoteUnixClient(socketPath)
+			client = driverhttp.NewRemoteClient(socketPath)
 			testLogger = lagertest.NewTestLogger("cephDriver Server Test")
 			node := GinkgoParallelNode()
 			volumeName = "fake-volume-name_" + strconv.Itoa(node)
