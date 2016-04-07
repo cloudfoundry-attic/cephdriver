@@ -59,6 +59,9 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 var _ = BeforeEach(func() {
 	var err error
 
+	tmpDriversPath, err = ioutil.TempDir(os.TempDir(), "ceph-driver-test")
+	Expect(err).NotTo(HaveOccurred())
+
 	driverServerPort = 9750 + GinkgoParallelNode()
 	debugServerAddress2 = fmt.Sprintf("0.0.0.0:%d", 9850+GinkgoParallelNode())
 	driverRunner = ginkgomon.New(ginkgomon.Config{
@@ -67,12 +70,10 @@ var _ = BeforeEach(func() {
 			driverPath,
 			"-listenAddr", fmt.Sprintf("0.0.0.0:%d", driverServerPort),
 			"-debugAddr", debugServerAddress2,
+			"-driversPath", tmpDriversPath,
 		),
 		StartCheck: "cephdriverServer.started",
 	})
-
-	tmpDriversPath, err = ioutil.TempDir(os.TempDir(), "ceph-driver-test")
-	Expect(err).NotTo(HaveOccurred())
 
 	volmanServerPort = 8750 + GinkgoParallelNode()
 	debugServerAddress = fmt.Sprintf("0.0.0.0:%d", 8850+GinkgoParallelNode())

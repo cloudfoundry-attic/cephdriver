@@ -9,6 +9,12 @@ import (
 	cf_debug_server "github.com/cloudfoundry-incubator/cf-debug-server"
 	cf_lager "github.com/cloudfoundry-incubator/cf-lager"
 
+	"strings"
+
+	"encoding/json"
+	"fmt"
+
+	"github.com/cloudfoundry-incubator/volman/voldriver"
 	"github.com/cloudfoundry-incubator/volman/voldriver/driverhttp"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
@@ -34,6 +40,7 @@ var transport = flag.String(
 	"tcp",
 	"Transport protocol to transmit HTTP over",
 )
+
 var isUnit = flag.Bool(
 	"unit",
 	false,
@@ -52,8 +59,14 @@ func main() {
 
 	var cephDriverServer ifrit.Runner
 
+	determineTransport(*atAddress)
 	withLogger, logTap = logger(*transport)
-	cephDriverServer = createCephDriverServer(withLogger, *atAddress, *driversPath, *isUnit, *transport)
+
+	if *transport == "tcp" {
+		cephDriverServer = createTcpServer(withLogger, *atAddress, *driversPath, *isUnit)
+	} else {
+		cephDriverServer = createUnixServer(withLogger, *atAddress, *driversPath)
+	}
 
 	servers := grouper.Members{
 		{"cephdriver-server", cephDriverServer},
@@ -63,6 +76,7 @@ func main() {
 			{"debug-server", cf_debug_server.Runner(dbgAddr, logTap)},
 		}, servers...)
 	}
+
 	process := ifrit.Invoke(processRunnerFor(servers))
 	untilTerminated(withLogger, process)
 }
@@ -83,22 +97,52 @@ func processRunnerFor(servers grouper.Members) ifrit.Runner {
 	return sigmon.New(grouper.NewOrdered(os.Interrupt, servers))
 }
 
-func createCephDriverServer(logger lager.Logger, atAddress string, driversPath string, isUnit bool, transport string) ifrit.Runner {
+func determineTransport(address string) {
+	if strings.HasSuffix(address, ".sock") {
+		*transport = "unix"
+	}
+}
+
+func createTcpServer(logger lager.Logger, atAddress string, driversPath string, isUnit bool) ifrit.Runner {
 	logger.Info("started")
 	defer logger.Info("ends")
+
 	var client *cephlocal.LocalDriver
+
+	spec := voldriver.DriverSpec{
+		Name:    "cephdriver",
+		Address: protocolify(atAddress, "http"),
+	}
+	specJson, err := json.Marshal(spec)
+	exitOnFailure(logger, err)
+
+	err = voldriver.WriteDriverJSONSpec(logger, driversPath, "cephdriver", specJson)
+	exitOnFailure(logger, err)
+
 	if isUnit == true {
+		logger.Info("Running in unit test mode")
 		fakeInvoker := new(cephfakes.FakeInvoker)
 		fakeSystemUtil := new(cephfakes.FakeSystemUtil)
 		client = cephlocal.NewLocalDriverWithInvokerAndSystemUtil(fakeInvoker, fakeSystemUtil)
 	} else {
 		client = cephlocal.NewLocalDriver()
 	}
+
 	handler, err := driverhttp.NewHandler(logger, client)
 	exitOnFailure(logger, err)
-	if transport == "tcp" {
-		return http_server.New(atAddress, handler)
-	}
+
+	return http_server.New(atAddress, handler)
+}
+
+func createUnixServer(logger lager.Logger, atAddress string, driversPath string) ifrit.Runner {
+	url := protocolify(atAddress, "unix")
+	err := voldriver.WriteDriverSpec(logger, driversPath, "cephdriver", url)
+	exitOnFailure(logger, err)
+
+	client := cephlocal.NewLocalDriver()
+	handler, err := driverhttp.NewHandler(logger, client)
+	exitOnFailure(logger, err)
+
 	return http_server.NewUnixServer(atAddress, handler)
 }
 
@@ -108,8 +152,16 @@ func logger(transport string) (lager.Logger, *lager.ReconfigurableSink) {
 	}
 	return cf_lager.New("cephdriverUnixServer")
 }
+
 func parseCommandLine() {
 	cf_lager.AddFlags(flag.CommandLine)
 	cf_debug_server.AddFlags(flag.CommandLine)
 	flag.Parse()
+}
+
+func protocolify(address string, protocol string) string {
+	if !strings.HasPrefix(address, protocol+"://") {
+		return fmt.Sprintf("%s://%s", protocol, address)
+	}
+	return address
 }
