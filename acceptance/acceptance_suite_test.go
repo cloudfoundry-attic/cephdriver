@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 	"github.com/tedsuo/ifrit/ginkgomon"
+	"strconv"
 )
 
 var volmanPath string
@@ -59,29 +60,42 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 var _ = BeforeEach(func() {
 	var err error
 
-	tmpDriversPath, err = ioutil.TempDir(os.TempDir(), "ceph-driver-test")
-	Expect(err).NotTo(HaveOccurred())
+	tmpDriversPath = os.Getenv("VOLMAN_DRIVERSPATH")
+	if len(tmpDriversPath) == 0 {
+		tmpDriversPath, err = ioutil.TempDir(os.TempDir(), "ceph-driver-test")
+		Expect(err).NotTo(HaveOccurred())
+	}
 
 	driverServerPort = 9750 + GinkgoParallelNode()
-	debugServerAddress2 = fmt.Sprintf("0.0.0.0:%d", 9850+GinkgoParallelNode())
-	driverRunner = ginkgomon.New(ginkgomon.Config{
-		Name: "cephdriverServer",
-		Command: exec.Command(
-			driverPath,
-			"-listenAddr", fmt.Sprintf("0.0.0.0:%d", driverServerPort),
-			"-debugAddr", debugServerAddress2,
-			"-driversPath", tmpDriversPath,
-		),
-		StartCheck: "cephdriverServer.started",
-	})
+	debugServerAddress2 = fmt.Sprintf("127.0.0.1:%d", 9850+GinkgoParallelNode())
+
+	isPipeline := false
+	isPipeline, _ = strconv.ParseBool(os.Getenv("PERSI_PIPELINE"))
+
+	if isPipeline {
+		driverRunner = ginkgomon.New(ginkgomon.Config{
+			Name: "noop",
+		})
+	} else {
+		driverRunner = ginkgomon.New(ginkgomon.Config{
+			Name: "cephdriverServer",
+			Command: exec.Command(
+				driverPath,
+				"-listenAddr", fmt.Sprintf("127.0.0.1:%d", driverServerPort),
+				"-debugAddr", debugServerAddress2,
+				"-driversPath", tmpDriversPath,
+			),
+			StartCheck: "cephdriverServer.started",
+		})
+	}
 
 	volmanServerPort = 8750 + GinkgoParallelNode()
-	debugServerAddress = fmt.Sprintf("0.0.0.0:%d", 8850+GinkgoParallelNode())
+	debugServerAddress = fmt.Sprintf("127.0.0.1:%d", 8850+GinkgoParallelNode())
 	volmanRunner = ginkgomon.New(ginkgomon.Config{
 		Name: "volman",
 		Command: exec.Command(
 			volmanPath,
-			"-listenAddr", fmt.Sprintf("0.0.0.0:%d", volmanServerPort),
+			"-listenAddr", fmt.Sprintf("127.0.0.1:%d", volmanServerPort),
 			"-debugAddr", debugServerAddress,
 			"-driversPath", tmpDriversPath,
 		),

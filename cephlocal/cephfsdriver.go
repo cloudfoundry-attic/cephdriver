@@ -173,6 +173,7 @@ func (d *LocalDriver) Mount(logger lager.Logger, mountRequest voldriver.MountReq
 	}
 
 	cmdArgs := []string{"-k", volume.KeyPath, "-m", fmt.Sprintf("%s:6789", volume.IP), volume.LocalMountPoint}
+	logger.Info("mount-command-args", lager.Data{"args": cmdArgs})
 	if err := d.callCeph(logger, cmdArgs); err != nil {
 		logger.Error("Error mounting volume", err)
 		return voldriver.MountResponse{Err: fmt.Sprintf("Error mounting '%s' (%s)", mountRequest.Name, err.Error())}
