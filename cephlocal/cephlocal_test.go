@@ -30,6 +30,15 @@ var _ = Describe("cephlocal", func() {
 		testLogger = lagertest.NewTestLogger("CephdriverTest")
 	})
 
+	Describe(".Activate", func() {
+
+		It("should return VolumeDrivers json", func() {
+			response := driver.Activate(testLogger)
+			Expect(response.Implements).To(Equal("VolumeDrivers"))
+		})
+
+	})
+
 	Describe("Create and Get", func() {
 
 		var (

@@ -140,6 +140,13 @@ func (d *LocalDriver) Get(logger lager.Logger, getRequest voldriver.GetRequest) 
 	return voldriver.GetResponse{Err: fmt.Sprintf("Volume '%s' not found", getRequest.Name)}
 }
 
+func (d *LocalDriver) Activate(logger lager.Logger) voldriver.ActivateResponse {
+
+	return voldriver.ActivateResponse{
+		Implements: "VolumeDrivers",
+	}
+}
+
 func (d *LocalDriver) Mount(logger lager.Logger, mountRequest voldriver.MountRequest) voldriver.MountResponse {
 	logger = logger.Session("Mount")
 	logger.Info("start")
