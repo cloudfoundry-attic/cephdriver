@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cloudfoundry-incubator/volman"
 	"github.com/cloudfoundry-incubator/volman/system"
 	"github.com/cloudfoundry-incubator/volman/voldriver"
 	"github.com/pivotal-golang/lager"
@@ -40,10 +41,9 @@ func NewLocalDriverWithInvokerAndSystemUtil(invoker Invoker, systemUtil SystemUt
 	return &LocalDriver{"_cephdriver/", "/tmp/cephdriver.log", map[string]*volumeMetadata{}, invoker, systemUtil}
 }
 
-func (d *LocalDriver) Info(logger lager.Logger) (voldriver.InfoResponse, error) {
-	return voldriver.InfoResponse{
+func (d *LocalDriver) Info(logger lager.Logger) (volman.InfoResponse, error) {
+	return volman.InfoResponse{
 		Name: "cephdriver",
-		Path: "/fake/path",
 	}, nil
 }
 
@@ -138,6 +138,13 @@ func (d *LocalDriver) Get(logger lager.Logger, getRequest voldriver.GetRequest) 
 	}
 	logger.Info("get-volume-not-found", lager.Data{"volume_name": getRequest.Name})
 	return voldriver.GetResponse{Err: fmt.Sprintf("Volume '%s' not found", getRequest.Name)}
+}
+
+func (d *LocalDriver) Activate(logger lager.Logger) voldriver.ActivateResponse {
+
+	return voldriver.ActivateResponse{
+		Implements: "VolumeDrivers",
+	}
 }
 
 func (d *LocalDriver) Mount(logger lager.Logger, mountRequest voldriver.MountRequest) voldriver.MountResponse {
