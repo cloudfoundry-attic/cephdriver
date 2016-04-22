@@ -34,7 +34,8 @@ var _ = Describe("cephlocal", func() {
 
 		It("should return VolumeDrivers json", func() {
 			response := driver.Activate(testLogger)
-			Expect(response.Implements).To(Equal("VolumeDrivers"))
+			Expect(len(response.Implements)).To(BeNumerically(">", 0))
+			Expect(response.Implements[0]).To(Equal("VolumeDrivers"))
 		})
 
 	})

@@ -136,7 +136,7 @@ func (d *LocalDriver) Get(logger lager.Logger, getRequest voldriver.GetRequest) 
 func (d *LocalDriver) Activate(logger lager.Logger) voldriver.ActivateResponse {
 
 	return voldriver.ActivateResponse{
-		Implements: "VolumeDrivers",
+		Implements: []string{"VolumeDrivers"},
 	}
 }
 

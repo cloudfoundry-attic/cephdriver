@@ -41,8 +41,8 @@ func main() {
 		}, servers...)
 	}
 
-	servers = sigmon.New(grouper.NewOrdered(os.Interrupt, servers))
-	process := ifrit.Invoke(servers)
+	runner := sigmon.New(grouper.NewOrdered(os.Interrupt, servers))
+	process := ifrit.Invoke(runner)
 	untilTerminated(withLogger, process)
 }
 
@@ -59,9 +59,9 @@ func untilTerminated(logger lager.Logger, process ifrit.Process) {
 }
 
 func parseCommandLine(config *cephlocal.CephServerConfig) {
-	flag.StringVar(config.AtAddress, "listenAddr", "0.0.0.0:9750", "host:port to serve volume management functions")
-	flag.StringVar(config.DriversPath, "driversPath", "", "Path to directory where drivers are installed")
-	flag.StringVar(config.Transport, "transport", "tcp", "Transport protocol to transmit HTTP over")
+	flag.StringVar(&config.AtAddress, "listenAddr", "0.0.0.0:9750", "host:port to serve volume management functions")
+	flag.StringVar(&config.DriversPath, "driversPath", "", "Path to directory where drivers are installed")
+	flag.StringVar(&config.Transport, "transport", "tcp", "Transport protocol to transmit HTTP over")
 
 	cf_lager.AddFlags(flag.CommandLine)
 	cf_debug_server.AddFlags(flag.CommandLine)
