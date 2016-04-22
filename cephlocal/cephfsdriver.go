@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudfoundry-incubator/volman"
 	"github.com/cloudfoundry-incubator/volman/system"
 	"github.com/cloudfoundry-incubator/volman/voldriver"
 	"github.com/pivotal-golang/lager"
@@ -39,12 +38,6 @@ func NewLocalDriver() *LocalDriver {
 
 func NewLocalDriverWithInvokerAndSystemUtil(invoker Invoker, systemUtil SystemUtil) *LocalDriver {
 	return &LocalDriver{"_cephdriver/", "/tmp/cephdriver.log", map[string]*volumeMetadata{}, invoker, systemUtil}
-}
-
-func (d *LocalDriver) Info(logger lager.Logger) (volman.InfoResponse, error) {
-	return volman.InfoResponse{
-		Name: "cephdriver",
-	}, nil
 }
 
 func (d *LocalDriver) Create(logger lager.Logger, createRequest voldriver.CreateRequest) voldriver.ErrorResponse {

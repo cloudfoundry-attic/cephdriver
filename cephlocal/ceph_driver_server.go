@@ -1,0 +1,157 @@
+package cephlocal
+
+import (
+	"errors"
+	"io/ioutil"
+	"os"
+
+	"strings"
+
+	"fmt"
+
+	"encoding/json"
+
+	"regexp"
+
+	"github.com/cloudfoundry-incubator/volman/voldriver"
+	"github.com/cloudfoundry-incubator/volman/voldriver/driverhttp"
+	"github.com/pivotal-golang/lager"
+	"github.com/tedsuo/ifrit"
+	"github.com/tedsuo/ifrit/http_server"
+)
+
+const IPV4_REGEX string = `^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$|^(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9\-]*[A-Za-z0-9])$|^\s*((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))(%.+)?\s*$`
+
+type CephServerConfig struct {
+	AtAddress   string
+	DriversPath string
+	Transport   string
+}
+
+type CephDriverServer interface {
+	Runner(logger lager.Logger) (ifrit.Runner, error)
+}
+
+type CephDriverServerStruct struct {
+	config CephServerConfig
+}
+
+func NewCephDriverServer(config CephServerConfig) CephDriverServer {
+	return &CephDriverServerStruct{
+		config: config,
+	}
+}
+
+func (server *CephDriverServerStruct) Runner(logger lager.Logger) (ifrit.Runner, error) {
+	var err error
+	var cephDriverServer ifrit.Runner
+
+	server.config.Transport = server.DetermineTransport(server.config.AtAddress)
+
+	if server.config.Transport == "tcp" {
+		cephDriverServer, err = server.CreateTcpServer(logger, server.config.AtAddress, server.config.DriversPath)
+	} else {
+		cephDriverServer, err = server.CreateUnixServer(logger, server.config.AtAddress, server.config.DriversPath)
+
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return cephDriverServer, nil
+}
+
+func (server *CephDriverServerStruct) CreateTcpServer(logger lager.Logger, atAddress string, driversPath string) (ifrit.Runner, error) {
+	logger = logger.Session("create-tcp-server")
+	logger.Info("start")
+	defer logger.Info("ends")
+
+	valid := server.isValidTcpAddress(atAddress)
+	if !valid {
+		return nil, errors.New(fmt.Sprintf("invalid-address %s", atAddress))
+	}
+
+	spec := voldriver.DriverSpec{
+		Name:    "cephdriver",
+		Address: server.protocolify(atAddress, "http"),
+	}
+	specJson, err := json.Marshal(spec)
+	if err != nil {
+		return nil, err
+	}
+
+	err = voldriver.WriteDriverJSONSpec(logger, driversPath, "cephdriver", specJson)
+	if err != nil {
+		return nil, err
+	}
+
+	handler, err := driverhttp.NewHandler(logger, NewLocalDriver())
+	if err != nil {
+		return nil, err
+	}
+
+	return http_server.New(atAddress, handler), nil
+}
+
+func (server *CephDriverServerStruct) CreateUnixServer(logger lager.Logger, atAddress string, driversPath string) (ifrit.Runner, error) {
+	logger = logger.Session("create-unix-server")
+	logger.Info("start")
+	defer logger.Info("ends")
+
+	err := server.isValidUnixSocketPath(atAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	url := server.protocolify(atAddress, "unix")
+	err = voldriver.WriteDriverSpec(logger, driversPath, "cephdriver", url)
+	if err != nil {
+		return nil, err
+	}
+
+	handler, err := driverhttp.NewHandler(logger, NewLocalDriver())
+	if err != nil {
+		return nil, err
+	}
+
+	return http_server.NewUnixServer(atAddress, handler), nil
+}
+
+func (server *CephDriverServerStruct) DetermineTransport(address string) string {
+	if strings.HasSuffix(address, ".sock") {
+		return "unix"
+	}
+
+	return "tcp"
+}
+
+// Private
+
+func (server *CephDriverServerStruct) protocolify(address string, protocol string) string {
+	if !strings.HasPrefix(address, protocol+"://") {
+		return fmt.Sprintf("%s://%s", protocol, address)
+	}
+	return address
+}
+
+func (server *CephDriverServerStruct) isValidUnixSocketPath(socketPath string) error {
+	_, err := os.Stat(socketPath)
+	if err == nil {
+		return nil
+	}
+
+	err = ioutil.WriteFile(socketPath, []byte{}, 0644)
+	if err != nil {
+		return err
+	} else {
+		os.Remove(socketPath)
+	}
+
+	return nil
+}
+
+func (server *CephDriverServerStruct) isValidTcpAddress(address string) bool {
+	re := regexp.MustCompile(IPV4_REGEX)
+	matches := re.FindStringSubmatch(address)
+	return len(matches) > 0
+}
