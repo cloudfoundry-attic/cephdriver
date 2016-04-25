@@ -1,12 +1,11 @@
 package cephlocal_test
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
+	"os"
 	"io/ioutil"
 
-	"os"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 
 	"github.com/cloudfoundry-incubator/cephdriver/cephlocal"
 	"github.com/pivotal-golang/lager"
@@ -120,17 +119,9 @@ var _ = Describe("Ceph Driver Server", func() {
 				})
 			})
 
-			Context("when driversPath is invalid", func() {
-				It("fails creating Runner", func() {
-					runner, err := cephDriverServer.CreateTcpServer(logger, atAddress, "fake-drivers-path")
-					Expect(err).To(HaveOccurred())
-					Expect(runner).To(BeNil())
-				})
-			})
-
 			Context("when atAddress and driversPath are invalid", func() {
 				It("fails creating Runner", func() {
-					runner, err := cephDriverServer.CreateTcpServer(logger, "...", "fake-drivers-path")
+					runner, err := cephDriverServer.CreateTcpServer(logger, "...", "/root/../..")
 					Expect(err).To(HaveOccurred())
 					Expect(runner).To(BeNil())
 				})
@@ -161,17 +152,9 @@ var _ = Describe("Ceph Driver Server", func() {
 				})
 			})
 
-			Context("when driversPath is invalid", func() {
-				It("fails creating Runner", func() {
-					runner, err := cephDriverServer.CreateUnixServer(logger, atAddress, "fake-drivers-path")
-					Expect(err).To(HaveOccurred())
-					Expect(runner).To(BeNil())
-				})
-			})
-
 			Context("when atAddress and driversPath are invalid", func() {
 				It("fails creating Runner", func() {
-					runner, err := cephDriverServer.CreateUnixServer(logger, "~/fake-address", "fake-drivers-path")
+					runner, err := cephDriverServer.CreateUnixServer(logger, "~/fake-address", "/root/../..")
 					Expect(err).To(HaveOccurred())
 					Expect(runner).To(BeNil())
 				})
