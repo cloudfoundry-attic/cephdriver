@@ -13,7 +13,7 @@ driversPath=$(realpath ~/voldriver_plugins)
 
 
 
-if [$TRANSPORT == "tcp"]
+if [ $TRANSPORT == "tcp" ];
 then
 ../exec/cephdriver -listenAddr="0.0.0.0:9750" -transport="tcp" -driversPath="${driversPath}" &
 else
