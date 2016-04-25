@@ -47,7 +47,7 @@ var _ = Describe("Ceph Driver Server", func() {
 		Context("when address and transport are IP and tcp", func() {
 			BeforeEach(func() {
 				cephDriverConfig = cephlocal.CephServerConfig{
-					AtAddress:   "0.0.0.0",
+					AtAddress:   "0.0.0.0:9750",
 					DriversPath: tmpDir,
 				}
 				cephDriverServer = cephlocal.NewCephDriverServer(cephDriverConfig).(*cephlocal.CephDriverServerStruct)
@@ -84,7 +84,7 @@ var _ = Describe("Ceph Driver Server", func() {
 
 		Context("when address is an IP", func() {
 			It("returns transport as tcp", func() {
-				transport := cephDriverServer.DetermineTransport("0.0.0.0")
+				transport := cephDriverServer.DetermineTransport("0.0.0.0:9750")
 				Expect(transport).To(Equal("tcp"))
 			})
 		})
@@ -99,7 +99,7 @@ var _ = Describe("Ceph Driver Server", func() {
 
 	Describe("#CreateTcpServer", func() {
 		BeforeEach(func() {
-			atAddress = "0.0.0.0"
+			atAddress = "0.0.0.0:9750"
 			driversPath = tmpDir
 		})
 
