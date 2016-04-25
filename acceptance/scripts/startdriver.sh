@@ -15,7 +15,9 @@ driversPath=$(realpath ~/voldriver_plugins)
 
 if [ $TRANSPORT == "tcp" ];
 then
+echo "RUNNING TCP ACCEPTANCE"
 ../exec/cephdriver -listenAddr="0.0.0.0:9750" -transport="tcp" -driversPath="${driversPath}" &
 else
+echo "RUNNING UNIX ACCEPTANCE"
 ../exec/cephdriver -listenAddr="${driversPath}/cephdriver.sock" -transport="unix" -driversPath="${driversPath}" &
 fi
