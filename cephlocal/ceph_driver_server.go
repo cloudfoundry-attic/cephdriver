@@ -80,7 +80,7 @@ func (server *CephDriverServerStruct) CreateTcpServer(logger lager.Logger, atAdd
 		return nil, err
 	}
 
-	err = voldriver.WriteDriverJSONSpec(logger, driversPath, "cephdriver", specJson)
+	err = voldriver.WriteDriverSpec(logger, driversPath, "cephdriver", "json", specJson)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func (server *CephDriverServerStruct) CreateUnixServer(logger lager.Logger, atAd
 	}
 
 	url := server.protocolify(atAddress, "unix")
-	err = voldriver.WriteDriverSpec(logger, driversPath, "cephdriver", url)
+	err = voldriver.WriteDriverSpec(logger, driversPath, "cephdriver","spec", []byte(url))
 	if err != nil {
 		return nil, err
 	}
