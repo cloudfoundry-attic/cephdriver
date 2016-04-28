@@ -7,11 +7,13 @@ import (
 	"github.com/cloudfoundry-incubator/cephdriver/cephlocal"
 	"github.com/cloudfoundry-incubator/cephdriver/cephlocal/cephfakes"
 	"github.com/cloudfoundry-incubator/volman/voldriver"
-	"github.com/cloudfoundry-incubator/volman/volmanfakes"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/pivotal-golang/lager"
 	"github.com/pivotal-golang/lager/lagertest"
+
+	"github.com/cloudfoundry/gunk/os_wrap/exec_wrap/execfakes"
 )
 
 var _ = Describe("cephlocal", func() {
@@ -321,16 +323,16 @@ var _ = Describe("cephlocal", func() {
 var _ = Describe("RealInvoker", func() {
 	var (
 		subject    cephlocal.Invoker
-		fakeCmd    *volmanfakes.FakeCmd
-		fakeExec   *volmanfakes.FakeExec
+		fakeCmd    *execfakes.FakeCmd
+		fakeExec   *execfakes.FakeExec
 		testLogger = lagertest.NewTestLogger("InvokerTest")
 		cmd        = "some-fake-command"
 		args       = []string{"fake-args-1"}
 	)
 	Context("when invoking an executable", func() {
 		BeforeEach(func() {
-			fakeExec = new(volmanfakes.FakeExec)
-			fakeCmd = new(volmanfakes.FakeCmd)
+			fakeExec = new(execfakes.FakeExec)
+			fakeCmd = new(execfakes.FakeCmd)
 			fakeExec.CommandReturns(fakeCmd)
 			subject = cephlocal.NewRealInvokerWithExec(fakeExec)
 		})

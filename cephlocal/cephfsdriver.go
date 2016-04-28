@@ -7,9 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudfoundry-incubator/volman/system"
 	"github.com/cloudfoundry-incubator/volman/voldriver"
 	"github.com/pivotal-golang/lager"
+
+	"github.com/cloudfoundry/gunk/os_wrap/exec_wrap"
 )
 
 type LocalDriver struct { // see voldriver.resources.go
@@ -290,14 +291,14 @@ type Invoker interface {
 }
 
 type realInvoker struct {
-	useExec system.Exec
+	useExec exec_wrap.Exec
 }
 
 func NewRealInvoker() Invoker {
-	return NewRealInvokerWithExec(&system.SystemExec{})
+	return NewRealInvokerWithExec(exec_wrap.NewExec())
 }
 
-func NewRealInvokerWithExec(useExec system.Exec) Invoker {
+func NewRealInvokerWithExec(useExec exec_wrap.Exec) Invoker {
 	return &realInvoker{useExec}
 }
 
