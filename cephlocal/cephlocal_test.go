@@ -118,6 +118,57 @@ var _ = Describe("cephlocal", func() {
 
 	})
 
+	Describe(".Path", func() {
+		var (
+			volumeName    string
+			opts          map[string]interface{}
+		)
+
+		It("should report an error for non-existent volume", func() {
+			pathResponse := driver.Path(testLogger, voldriver.PathRequest{
+				Name: "unknown",
+			})
+
+			Expect(pathResponse.Err).NotTo(Equal(""))
+		})
+
+		Context("when there is a created/attached volume", func() {
+			BeforeEach(func() {
+				volumeName = "volume-name"
+				opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "localMountPoint": "some-localmountpoint", "remoteMountPoint": "some-remote-mountpoint"}
+				createSuccessful(testLogger, driver, volumeName, opts)
+			})
+
+			It("should report an error for Path on unmounted volume", func() {
+				pathResponse := driver.Path(testLogger, voldriver.PathRequest{
+					Name: volumeName,
+				})
+
+				Expect(pathResponse.Err).NotTo(Equal(""))
+			})
+
+			Context("when the mount completes successfully", func() {
+				BeforeEach(func() {
+					fakeInvoker.InvokeReturns(nil)
+					mountSuccessful(testLogger, driver, volumeName)
+
+					Expect(fakeSystemUtil.MkdirAllCallCount()).To(Equal(1))
+					path, _ := fakeSystemUtil.MkdirAllArgsForCall(0)
+					Expect(path).To(Equal("some-localmountpoint"))
+				})
+
+				It("should return Path correctly",  func() {
+					pathResponse := driver.Path(testLogger, voldriver.PathRequest{
+						Name: volumeName,
+					})
+
+					Expect(pathResponse.Err).To(Equal(""))
+					Expect(pathResponse.Mountpoint).To(Equal("some-localmountpoint"))
+				})
+			})
+		})
+	})
+
 	Describe(".Mount", func() {
 		var (
 			mountResponse voldriver.MountResponse

@@ -134,6 +134,23 @@ func (d *LocalDriver) Get(logger lager.Logger, getRequest voldriver.GetRequest) 
 	return voldriver.GetResponse{Err: fmt.Sprintf("Volume '%s' not found", getRequest.Name)}
 }
 
+func (d *LocalDriver) Path(logger lager.Logger, getRequest voldriver.PathRequest) voldriver.PathResponse {
+	logger = logger.Session("Path")
+	logger.Info("start")
+	defer logger.Info("end")
+
+	if volume, ok := d.volumes[getRequest.Name]; ok {
+		if volume.Mounted == true {
+			logger.Info("volume-path", lager.Data{"volume_name": getRequest.Name, "volume_path": volume.LocalMountPoint})
+			return voldriver.PathResponse{Mountpoint: volume.LocalMountPoint}
+		}
+		logger.Info("volume-path-not-mounted", lager.Data{"volume_name": getRequest.Name})
+		return voldriver.PathResponse{Err: fmt.Sprintf("Volume %s not mounted", getRequest.Name)}
+	}
+	logger.Info("volume-path-not-found", lager.Data{"volume_name": getRequest.Name})
+	return voldriver.PathResponse{Err: fmt.Sprintf("Volume '%s' not found", getRequest.Name)}
+}
+
 func (d *LocalDriver) Activate(logger lager.Logger) voldriver.ActivateResponse {
 
 	return voldriver.ActivateResponse{
