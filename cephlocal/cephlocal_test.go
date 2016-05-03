@@ -118,6 +118,46 @@ var _ = Describe("cephlocal", func() {
 
 	})
 
+	Describe(".List", func() {
+		var (
+			volumeName    string
+			opts          map[string]interface{}
+		)
+
+		Context("when there is a created/attached volume", func() {
+			BeforeEach(func() {
+				volumeName = "volume-name"
+				opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "localMountPoint": "some-localmountpoint", "remoteMountPoint": "some-remote-mountpoint"}
+				createSuccessful(testLogger, driver, volumeName, opts)
+			})
+
+			It("should list the volume with an empty mountpoint for unmounted volumes", func(){
+				listResponse := driver.List(testLogger)
+				Expect(listResponse.Err).To(Equal(""))
+				Expect(listResponse.Volumes[0].Name).To(Equal("volume-name"))
+				Expect(listResponse.Volumes[0].Mountpoint).To(Equal(""))
+			})
+
+			Context("when the mount completes successfully", func() {
+				BeforeEach(func() {
+					fakeInvoker.InvokeReturns(nil)
+					mountSuccessful(testLogger, driver, volumeName)
+
+					Expect(fakeSystemUtil.MkdirAllCallCount()).To(Equal(1))
+					path, _ := fakeSystemUtil.MkdirAllArgsForCall(0)
+					Expect(path).To(Equal("some-localmountpoint"))
+				})
+
+				It("should list the volume with an empty mountpoint for unmounted volumes", func(){
+					listResponse := driver.List(testLogger)
+					Expect(listResponse.Err).To(Equal(""))
+					Expect(listResponse.Volumes[0].Name).To(Equal("volume-name"))
+					Expect(listResponse.Volumes[0].Mountpoint).To(Equal("some-localmountpoint"))
+				})
+			})
+		})
+	})
+
 	Describe(".Path", func() {
 		var (
 			volumeName    string

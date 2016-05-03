@@ -158,6 +158,22 @@ func (d *LocalDriver) Activate(logger lager.Logger) voldriver.ActivateResponse {
 	}
 }
 
+func (d *LocalDriver) List(logger lager.Logger) voldriver.ListResponse {
+	listResponse := voldriver.ListResponse{}
+	volInfo := voldriver.VolumeInfo{}
+	for volumeName, volume := range d.volumes {
+		volInfo.Name = volumeName
+		if volume.Mounted {
+			volInfo.Mountpoint = volume.LocalMountPoint
+		} else {
+			volInfo.Mountpoint = ""
+		}
+		listResponse.Volumes = append(listResponse.Volumes, volInfo)
+	}
+	listResponse.Err= ""
+	return listResponse
+}
+
 func (d *LocalDriver) Mount(logger lager.Logger, mountRequest voldriver.MountRequest) voldriver.MountResponse {
 	logger = logger.Session("Mount")
 	logger.Info("start")
