@@ -115,7 +115,6 @@ func extractValue(logger lager.Logger, value string, opts map[string]interface{}
 		logger.Info("missing-" + strings.ToLower(value))
 		return "", &voldriver.ErrorResponse{Err: "Unable to string convert '" + value + "' field in 'Opts'"}
 	}
-	logger.Info("creating-volume", lager.Data{"value - " + value: str})
 	return str, nil
 }
 
@@ -170,7 +169,7 @@ func (d *LocalDriver) List(logger lager.Logger) voldriver.ListResponse {
 		}
 		listResponse.Volumes = append(listResponse.Volumes, volInfo)
 	}
-	listResponse.Err= ""
+	listResponse.Err = ""
 	return listResponse
 }
 
@@ -206,7 +205,7 @@ func (d *LocalDriver) Mount(logger lager.Logger, mountRequest voldriver.MountReq
 		return voldriver.MountResponse{Err: fmt.Sprintf("Unable to create local mount point for volume '%s'", mountRequest.Name)}
 	}
 
-	cmdArgs := []string{"-k", volume.KeyPath, "-m", fmt.Sprintf("%s:6789", volume.IP), volume.LocalMountPoint}
+	cmdArgs := []string{"-k", volume.KeyPath, "-m", fmt.Sprintf("%s:6789", volume.IP), "-r", volume.RemoteMountPoint, volume.LocalMountPoint}
 	if err := d.callCeph(logger, cmdArgs); err != nil {
 		logger.Error("Error mounting volume", err)
 		return voldriver.MountResponse{Err: fmt.Sprintf("Error mounting '%s' (%s)", mountRequest.Name, err.Error())}

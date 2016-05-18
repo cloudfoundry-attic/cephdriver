@@ -120,8 +120,8 @@ var _ = Describe("cephlocal", func() {
 
 	Describe(".List", func() {
 		var (
-			volumeName    string
-			opts          map[string]interface{}
+			volumeName string
+			opts       map[string]interface{}
 		)
 
 		Context("when there is a created/attached volume", func() {
@@ -131,7 +131,7 @@ var _ = Describe("cephlocal", func() {
 				createSuccessful(testLogger, driver, volumeName, opts)
 			})
 
-			It("should list the volume with an empty mountpoint for unmounted volumes", func(){
+			It("should list the volume with an empty mountpoint for unmounted volumes", func() {
 				listResponse := driver.List(testLogger)
 				Expect(listResponse.Err).To(Equal(""))
 				Expect(listResponse.Volumes[0].Name).To(Equal("volume-name"))
@@ -148,7 +148,7 @@ var _ = Describe("cephlocal", func() {
 					Expect(path).To(Equal("some-localmountpoint"))
 				})
 
-				It("should list the volume with an empty mountpoint for unmounted volumes", func(){
+				It("should list the volume with an empty mountpoint for unmounted volumes", func() {
 					listResponse := driver.List(testLogger)
 					Expect(listResponse.Err).To(Equal(""))
 					Expect(listResponse.Volumes[0].Name).To(Equal("volume-name"))
@@ -160,8 +160,8 @@ var _ = Describe("cephlocal", func() {
 
 	Describe(".Path", func() {
 		var (
-			volumeName    string
-			opts          map[string]interface{}
+			volumeName string
+			opts       map[string]interface{}
 		)
 
 		It("should report an error for non-existent volume", func() {
@@ -197,7 +197,7 @@ var _ = Describe("cephlocal", func() {
 					Expect(path).To(Equal("some-localmountpoint"))
 				})
 
-				It("should return Path correctly",  func() {
+				It("should return Path correctly", func() {
 					pathResponse := driver.Path(testLogger, voldriver.PathRequest{
 						Name: volumeName,
 					})
@@ -252,15 +252,23 @@ var _ = Describe("cephlocal", func() {
 					path, _ := fakeSystemUtil.MkdirAllArgsForCall(0)
 					Expect(path).To(Equal("some-localmountpoint"))
 				})
+
+				It("invokes Ceph with a remote mountpoint", func() {
+					_, _, args := fakeInvoker.InvokeArgsForCall(0)
+					Expect(args).To(ContainElement("-r"))
+					Expect(args).To(ContainElement("some-remote-mountpoint"))
+				})
+
 				It("creates a keyfile", func() {
 					Expect(fakeSystemUtil.WriteFileCallCount()).To(Equal(1))
 				})
+
 				It("can get the volume and it is mounted path", func() {
 					getResponse := getSuccessful(testLogger, driver, volumeName)
 					Expect(getResponse.Volume.Mountpoint).To(Equal("some-localmountpoint"))
 				})
-				It("should return mountpoint", func() {
 
+				It("should return mountpoint", func() {
 					mountResponse = driver.Mount(testLogger, voldriver.MountRequest{
 						Name: volumeName,
 					})
