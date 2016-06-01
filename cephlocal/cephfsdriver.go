@@ -25,7 +25,7 @@ type volumeMetadata struct {
 	IP               string
 	RemoteMountPoint string
 	LocalMountPoint  string
-	Mounted          bool
+	MountCount          int
 	KeyPath          string
 }
 
@@ -124,7 +124,7 @@ func (d *LocalDriver) Get(logger lager.Logger, getRequest voldriver.GetRequest) 
 	defer logger.Info("end")
 	if volume, ok := d.volumes[getRequest.Name]; ok {
 		logger.Info("get-volume", lager.Data{"volume_name": getRequest.Name})
-		if volume.Mounted == true {
+		if volume.MountCount > 0 {
 			return voldriver.GetResponse{Volume: voldriver.VolumeInfo{Name: getRequest.Name, Mountpoint: volume.LocalMountPoint}}
 		}
 		return voldriver.GetResponse{Volume: voldriver.VolumeInfo{Name: getRequest.Name}}
@@ -139,7 +139,7 @@ func (d *LocalDriver) Path(logger lager.Logger, getRequest voldriver.PathRequest
 	defer logger.Info("end")
 
 	if volume, ok := d.volumes[getRequest.Name]; ok {
-		if volume.Mounted == true {
+		if volume.MountCount > 0 {
 			logger.Info("volume-path", lager.Data{"volume_name": getRequest.Name, "volume_path": volume.LocalMountPoint})
 			return voldriver.PathResponse{Mountpoint: volume.LocalMountPoint}
 		}
@@ -162,7 +162,7 @@ func (d *LocalDriver) List(logger lager.Logger) voldriver.ListResponse {
 	volInfo := voldriver.VolumeInfo{}
 	for volumeName, volume := range d.volumes {
 		volInfo.Name = volumeName
-		if volume.Mounted {
+		if volume.MountCount > 0 {
 			volInfo.Mountpoint = volume.LocalMountPoint
 		} else {
 			volInfo.Mountpoint = ""
@@ -184,7 +184,8 @@ func (d *LocalDriver) Mount(logger lager.Logger, mountRequest voldriver.MountReq
 		logger.Info("mount-volume-not-found", lager.Data{"volume_name": mountRequest.Name})
 		return voldriver.MountResponse{Err: fmt.Sprintf("Volume '%s' not found", mountRequest.Name)}
 	}
-	if volume.Mounted == true {
+	if volume.MountCount > 0 {
+		volume.MountCount++
 		logger.Info("mount-volume-already-mounted", lager.Data{"volume": volume})
 		return voldriver.MountResponse{Mountpoint: volume.LocalMountPoint}
 	}
@@ -211,7 +212,7 @@ func (d *LocalDriver) Mount(logger lager.Logger, mountRequest voldriver.MountReq
 		return voldriver.MountResponse{Err: fmt.Sprintf("Error mounting '%s' (%s)", mountRequest.Name, err.Error())}
 	}
 
-	volume.Mounted = true
+	volume.MountCount = 1
 
 	return voldriver.MountResponse{Mountpoint: volume.LocalMountPoint}
 
@@ -228,7 +229,7 @@ func (d *LocalDriver) Unmount(logger lager.Logger, unmountRequest voldriver.Unmo
 		logger.Info("unmount-volume-not-found", lager.Data{"volume_name": unmountRequest.Name})
 		return voldriver.ErrorResponse{Err: fmt.Sprintf("Volume '%s' is unknown", unmountRequest.Name)}
 	}
-	if volume.Mounted == false {
+	if volume.MountCount == 0 {
 		logger.Info("unmount-volume-not-mounted", lager.Data{"volume_name": unmountRequest.Name})
 		return voldriver.ErrorResponse{Err: fmt.Sprintf("Volume '%s' not mounted", unmountRequest.Name)}
 	}
@@ -252,7 +253,7 @@ func (d *LocalDriver) Remove(logger lager.Logger, removeRequest voldriver.Remove
 		return voldriver.ErrorResponse{fmt.Sprintf("Volume '%s' not found", removeRequest.Name)}
 	}
 
-	if vol.Mounted == true {
+	for ;vol.MountCount > 0; {
 		response = d.unmount(logger, vol, removeRequest.Name)
 		if response.Err != "" {
 			return response
@@ -267,12 +268,18 @@ func (d *LocalDriver) Remove(logger lager.Logger, removeRequest voldriver.Remove
 func (d *LocalDriver) unmount(logger lager.Logger, volume *volumeMetadata, volumeName string) voldriver.ErrorResponse {
 	logger.Info("umount-found-volume", lager.Data{"metadata": volume})
 
+	if volume.MountCount > 1 {
+		volume.MountCount--
+		logger.Info("unmount-volume-in-use", lager.Data{"metadata": volume})
+		return voldriver.ErrorResponse{}
+	}
+
 	cmdArgs := []string{volume.LocalMountPoint}
 	if err := d.useInvoker.Invoke(logger, "umount", cmdArgs); err != nil {
 		logger.Error("Error invoking CLI", err)
 		return voldriver.ErrorResponse{Err: fmt.Sprintf("Error unmounting '%s' (%s)", volumeName, err.Error())}
 	}
-	volume.Mounted = false
+	volume.MountCount = 0
 	err := d.useSystemUtil.Remove(volume.KeyPath)
 	if err != nil {
 		logger.Error("Error deleting file", err)

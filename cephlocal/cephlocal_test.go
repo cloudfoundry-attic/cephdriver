@@ -352,6 +352,17 @@ var _ = Describe("cephlocal", func() {
 						Expect(mountPointPath).To(Equal("some-localmountpoint"))
 					})
 				})
+
+				Context("when the volume is mounted for a second time and then unmounted", func() {
+					BeforeEach(func() {
+						mountSuccessful(testLogger, driver, volumeName)
+						unmountSuccessful(testLogger, driver, volumeName)
+					})
+					It("can still get the volume and it is mounted path", func() {
+						getResponse := getSuccessful(testLogger, driver, volumeName)
+						Expect(getResponse.Volume.Mountpoint).To(Equal("some-localmountpoint"))
+					})
+				})
 			})
 		})
 	})
