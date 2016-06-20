@@ -25,7 +25,7 @@ type volumeMetadata struct {
 	IP               string
 	RemoteMountPoint string
 	LocalMountPoint  string
-	MountCount          int
+	MountCount       int
 	KeyPath          string
 }
 
@@ -253,7 +253,7 @@ func (d *LocalDriver) Remove(logger lager.Logger, removeRequest voldriver.Remove
 		return voldriver.ErrorResponse{fmt.Sprintf("Volume '%s' not found", removeRequest.Name)}
 	}
 
-	for ;vol.MountCount > 0; {
+	for vol.MountCount > 0 {
 		response = d.unmount(logger, vol, removeRequest.Name)
 		if response.Err != "" {
 			return response
