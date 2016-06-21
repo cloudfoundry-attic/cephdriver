@@ -23,7 +23,7 @@ func main() {
 	cephServerConfig := cephlocal.CephServerConfig{}
 	parseCommandLine(&cephServerConfig)
 
-	withLogger := lager.NewLogger("ceph-driver-server")
+	withLogger, _ := cf_lager.New("ceph-driver-server")
 
 	cephServer := cephlocal.NewCephDriverServer(cephServerConfig)
 	cephDriverServer, err := cephServer.Runner(withLogger)
