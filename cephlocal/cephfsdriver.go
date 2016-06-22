@@ -342,6 +342,10 @@ func NewRealInvokerWithExec(useExec exec_wrap.Exec) Invoker {
 }
 
 func (r *realInvoker) Invoke(logger lager.Logger, executable string, cmdArgs []string) error {
+	logger = logger.Session("invoking-command", lager.Data{"executable": executable, "args": cmdArgs})
+	logger.Info("start")
+	defer logger.Info("end")
+
 	cmdHandle := r.useExec.Command(executable, cmdArgs...)
 
 	_, err := cmdHandle.StdoutPipe()
