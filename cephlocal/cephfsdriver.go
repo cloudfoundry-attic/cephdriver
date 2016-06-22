@@ -47,8 +47,8 @@ func (d *LocalDriver) Create(logger lager.Logger, createRequest voldriver.Create
 	defer logger.Info("end")
 
 	var (
-		localmountpoint  string
-		remotemountpoint string
+		localMountPoint  string
+		remoteMountPoint string
 		ip               string
 		keyring          string
 		err              *voldriver.ErrorResponse
@@ -64,17 +64,17 @@ func (d *LocalDriver) Create(logger lager.Logger, createRequest voldriver.Create
 		return *err
 	}
 
-	remotemountpoint, err = extractValue(logger, "remoteMountPoint", createRequest.Opts)
+	remoteMountPoint, err = extractValue(logger, "remote_mount_point", createRequest.Opts)
 	if err != nil {
 		return *err
 	}
 
-	localmountpoint, err = extractValue(logger, "localMountPoint", createRequest.Opts)
+	localMountPoint, err = extractValue(logger, "local_mount_point", createRequest.Opts)
 	if err != nil {
 		return *err
 	}
 
-	return d.create(logger, createRequest.Name, ip, keyring, remotemountpoint, localmountpoint)
+	return d.create(logger, createRequest.Name, ip, keyring, remoteMountPoint, localMountPoint)
 }
 
 func successfullResponse() voldriver.ErrorResponse {
@@ -108,7 +108,7 @@ func extractValue(logger lager.Logger, value string, opts map[string]interface{}
 	var str string
 	var ok bool
 	if aString, ok = opts[value]; !ok {
-		logger.Info("missing-" + strings.ToLower(value))
+		logger.Info("missing-config-value", lager.Data{"key": value})
 		return "", &voldriver.ErrorResponse{Err: "Missing mandatory '" + value + "' field in 'Opts'"}
 	}
 	if str, ok = aString.(string); !ok {

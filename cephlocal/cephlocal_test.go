@@ -51,7 +51,7 @@ var _ = Describe("cephlocal", func() {
 		Context("when creating a volume", func() {
 			Context("when successful", func() {
 				BeforeEach(func() {
-					opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "localMountPoint": "some-localmountpoint", "remoteMountPoint": "some-remote-mountpoint"}
+					opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "local_mount_point": "some-localmountpoint", "remote_mount_point": "some-remote-mountpoint"}
 					createSuccessful(testLogger, driver, "some-volume-name", opts)
 				})
 				It("should be able to retrieve volume", func() {
@@ -65,26 +65,26 @@ var _ = Describe("cephlocal", func() {
 					BeforeEach(func() {
 						opts = map[string]interface{}{}
 					})
-					It("should error with missing remoteMountPoint", func() {
-						opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "localMountPoint": "some-localmountpoint"}
+					It("should error with missing remote_mount_point", func() {
+						opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "local_mount_point": "some-localmountpoint"}
 						createRequest := voldriver.CreateRequest{Name: "some-volume-name", Opts: opts}
 						createResponse = driver.Create(testLogger, createRequest)
-						Expect(createResponse.Err).To(Equal("Missing mandatory 'remoteMountPoint' field in 'Opts'"))
+						Expect(createResponse.Err).To(Equal("Missing mandatory 'remote_mount_point' field in 'Opts'"))
 					})
-					It("should error with missing localMountPoint", func() {
-						opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "remoteMountPoint": "some-remotemountpoint"}
+					It("should error with missing local_mount_point", func() {
+						opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "remote_mount_point": "some-remotemountpoint"}
 						createRequest := voldriver.CreateRequest{Name: "some-volume-name", Opts: opts}
 						createResponse = driver.Create(testLogger, createRequest)
-						Expect(createResponse.Err).To(Equal("Missing mandatory 'localMountPoint' field in 'Opts'"))
+						Expect(createResponse.Err).To(Equal("Missing mandatory 'local_mount_point' field in 'Opts'"))
 					})
 					It("should error with missing keyring", func() {
-						opts = map[string]interface{}{"ip": "some-ip", "remoteMountPoint": "some-remotemountpoint", "localMountPoint": "some-localmoutnpoint"}
+						opts = map[string]interface{}{"ip": "some-ip", "remote_mount_point": "some-remotemountpoint", "local_mount_point": "some-localmoutnpoint"}
 						createRequest := voldriver.CreateRequest{Name: "some-volume-name", Opts: opts}
 						createResponse = driver.Create(testLogger, createRequest)
 						Expect(createResponse.Err).To(Equal("Missing mandatory 'keyring' field in 'Opts'"))
 					})
 					It("should error with missing ip", func() {
-						opts = map[string]interface{}{"keyring": "some-keyring", "remoteMountPoint": "some-remotemountpoint", "localMountPoint": "some-localmoutnpoint"}
+						opts = map[string]interface{}{"keyring": "some-keyring", "remote_mount_point": "some-remotemountpoint", "local_mount_point": "some-localmoutnpoint"}
 						createRequest := voldriver.CreateRequest{Name: "some-volume-name", Opts: opts}
 						createResponse = driver.Create(testLogger, createRequest)
 						Expect(createResponse.Err).To(Equal("Missing mandatory 'ip' field in 'Opts'"))
@@ -96,19 +96,19 @@ var _ = Describe("cephlocal", func() {
 			})
 			Context("when volume already exists", func() {
 				BeforeEach(func() {
-					opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "localMountPoint": "some-localmountpoint", "remoteMountPoint": "some-remote-mountpoint"}
+					opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "local_mount_point": "some-localmountpoint", "remote_mount_point": "some-remote-mountpoint"}
 					createRequest := voldriver.CreateRequest{Name: "some-volume-name", Opts: opts}
 					createResponse = driver.Create(testLogger, createRequest)
 					Expect(createResponse.Err).To(Equal(""))
 				})
 				It("fails when given different metadata.", func() {
-					opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "localMountPoint": "some-localmountpoint", "remoteMountPoint": "someother-remote-mountpoint"}
+					opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "local_mount_point": "some-localmountpoint", "remote_mount_point": "someother-remote-mountpoint"}
 					createRequest := voldriver.CreateRequest{Name: "some-volume-name", Opts: opts}
 					createResponse = driver.Create(testLogger, createRequest)
 					Expect(createResponse.Err).To(Equal("Volume 'some-volume-name' already exists with different Opts"))
 				})
 				It("succeeds when given same metadata", func() {
-					opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "localMountPoint": "some-localmountpoint", "remoteMountPoint": "some-remote-mountpoint"}
+					opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "local_mount_point": "some-localmountpoint", "remote_mount_point": "some-remote-mountpoint"}
 					createRequest := voldriver.CreateRequest{Name: "some-volume-name", Opts: opts}
 					createResponse = driver.Create(testLogger, createRequest)
 					Expect(createResponse.Err).To(Equal(""))
@@ -127,7 +127,7 @@ var _ = Describe("cephlocal", func() {
 		Context("when there is a created/attached volume", func() {
 			BeforeEach(func() {
 				volumeName = "volume-name"
-				opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "localMountPoint": "some-localmountpoint", "remoteMountPoint": "some-remote-mountpoint"}
+				opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "local_mount_point": "some-localmountpoint", "remote_mount_point": "some-remote-mountpoint"}
 				createSuccessful(testLogger, driver, volumeName, opts)
 			})
 
@@ -175,7 +175,7 @@ var _ = Describe("cephlocal", func() {
 		Context("when there is a created/attached volume", func() {
 			BeforeEach(func() {
 				volumeName = "volume-name"
-				opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "localMountPoint": "some-localmountpoint", "remoteMountPoint": "some-remote-mountpoint"}
+				opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "local_mount_point": "some-localmountpoint", "remote_mount_point": "some-remote-mountpoint"}
 				createSuccessful(testLogger, driver, volumeName, opts)
 			})
 
@@ -218,7 +218,7 @@ var _ = Describe("cephlocal", func() {
 		Context("when there is a created/attached volume", func() {
 			BeforeEach(func() {
 				volumeName = "volume-name"
-				opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "localMountPoint": "some-localmountpoint", "remoteMountPoint": "some-remote-mountpoint"}
+				opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "local_mount_point": "some-localmountpoint", "remote_mount_point": "some-remote-mountpoint"}
 				createSuccessful(testLogger, driver, volumeName, opts)
 			})
 
@@ -290,7 +290,7 @@ var _ = Describe("cephlocal", func() {
 		Context("when there is a created/attached volume", func() {
 			BeforeEach(func() {
 				volumeName = "volume-name"
-				opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "localMountPoint": "some-localmountpoint", "remoteMountPoint": "some-remote-mountpoint"}
+				opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "local_mount_point": "some-localmountpoint", "remote_mount_point": "some-remote-mountpoint"}
 				createSuccessful(testLogger, driver, volumeName, opts)
 			})
 
@@ -387,7 +387,7 @@ var _ = Describe("cephlocal", func() {
 
 		Context("when there is a created/attached volume", func() {
 			BeforeEach(func() {
-				opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "localMountPoint": "some-localmountpoint", "remoteMountPoint": "some-remote-mountpoint"}
+				opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "local_mount_point": "some-localmountpoint", "remote_mount_point": "some-remote-mountpoint"}
 				createSuccessful(testLogger, driver, volumeName, opts)
 			})
 			It("destroys volume", func() {
