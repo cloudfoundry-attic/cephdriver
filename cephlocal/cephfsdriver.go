@@ -10,8 +10,6 @@ import (
 	"github.com/cloudfoundry-incubator/volman/voldriver"
 	"github.com/pivotal-golang/lager"
 
-	"os/exec"
-
 	"github.com/cloudfoundry/gunk/os_wrap/exec_wrap"
 )
 
@@ -214,12 +212,6 @@ func (d *LocalDriver) Mount(logger lager.Logger, mountRequest voldriver.MountReq
 		return voldriver.MountResponse{Err: fmt.Sprintf("Error mounting '%s' (%s)", mountRequest.Name, err.Error())}
 	}
 
-	err = d.useSystemUtil.Chmod(volume.LocalMountPoint, os.ModePerm)
-	if err != nil {
-		logger.Error("failed-setting-mountpoint-perms", err)
-		return voldriver.MountResponse{Err: fmt.Sprintf("Unable to chmod local mount point for volume '%s'", mountRequest.Name)}
-	}
-
 	volume.MountCount = 1
 
 	return voldriver.MountResponse{Mountpoint: volume.LocalMountPoint}
@@ -332,10 +324,7 @@ func (f *realSystemUtil) Remove(path string) error {
 }
 
 func (f *realSystemUtil) Chmod(path string, perm os.FileMode) (err error) {
-	//return os.Chmod(path, perm)
-	cmd := exec.Command("chmod", "777", path)
-	_, err = cmd.Output()
-	return
+	return os.Chmod(path, perm)
 }
 
 //go:generate counterfeiter -o ./cephfakes/fake_invoker.go . Invoker

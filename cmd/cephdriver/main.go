@@ -11,6 +11,8 @@ import (
 
 	"github.com/cloudfoundry-incubator/cephdriver/cephlocal"
 
+	"syscall"
+
 	cf_debug_server "github.com/cloudfoundry-incubator/cf-debug-server"
 	cf_lager "github.com/cloudfoundry-incubator/cf-lager"
 )
@@ -24,6 +26,8 @@ func main() {
 	parseCommandLine(&cephServerConfig)
 
 	withLogger, _ := cf_lager.New("ceph-driver-server")
+
+	syscall.Umask(000)
 
 	cephServer := cephlocal.NewCephDriverServer(cephServerConfig)
 	cephDriverServer, err := cephServer.Runner(withLogger)
