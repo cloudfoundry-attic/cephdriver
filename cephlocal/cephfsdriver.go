@@ -212,10 +212,15 @@ func (d *LocalDriver) Mount(logger lager.Logger, mountRequest voldriver.MountReq
 		return voldriver.MountResponse{Err: fmt.Sprintf("Error mounting '%s' (%s)", mountRequest.Name, err.Error())}
 	}
 
+	err = d.useSystemUtil.Chmod(volume.LocalMountPoint, os.ModePerm)
+	if err != nil {
+		logger.Error("failed-setting-mountpoint-perms", err)
+		return voldriver.MountResponse{Err: fmt.Sprintf("Unable to chmod local mount point for volume '%s'", mountRequest.Name)}
+	}
+
 	volume.MountCount = 1
 
 	return voldriver.MountResponse{Mountpoint: volume.LocalMountPoint}
-
 }
 
 func (d *LocalDriver) Unmount(logger lager.Logger, unmountRequest voldriver.UnmountRequest) voldriver.ErrorResponse {
@@ -274,8 +279,8 @@ func (d *LocalDriver) unmount(logger lager.Logger, volume *volumeMetadata, volum
 		return voldriver.ErrorResponse{}
 	}
 
-	cmdArgs := []string{volume.LocalMountPoint}
-	if err := d.useInvoker.Invoke(logger, "umount", cmdArgs); err != nil {
+	cmdArgs := []string{"-u", volume.LocalMountPoint}
+	if err := d.useInvoker.Invoke(logger, "fusermount", cmdArgs); err != nil {
 		logger.Error("Error invoking CLI", err)
 		return voldriver.ErrorResponse{Err: fmt.Sprintf("Error unmounting '%s' (%s)", volumeName, err.Error())}
 	}
@@ -304,6 +309,7 @@ type SystemUtil interface {
 	MkdirAll(path string, perm os.FileMode) error
 	WriteFile(filename string, data []byte, perm os.FileMode) error
 	Remove(string) error
+	Chmod(path string, perm os.FileMode) error
 }
 type realSystemUtil struct{}
 
@@ -321,6 +327,10 @@ func (f *realSystemUtil) WriteFile(filename string, data []byte, perm os.FileMod
 
 func (f *realSystemUtil) Remove(path string) error {
 	return os.Remove(path)
+}
+
+func (f *realSystemUtil) Chmod(path string, perm os.FileMode) error {
+	return os.Chmod(path, perm)
 }
 
 //go:generate counterfeiter -o ./cephfakes/fake_invoker.go . Invoker

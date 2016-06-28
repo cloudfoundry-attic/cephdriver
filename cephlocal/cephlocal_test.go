@@ -332,7 +332,7 @@ var _ = Describe("cephlocal", func() {
 					Expect(unmountResponse.Err).To(Equal(fmt.Sprintf("Error unmounting '%s' (invocation fails)", volumeName)))
 				})
 
-				Context("when umount successful", func() {
+				Context("when fusermount -u successful", func() {
 					BeforeEach(func() {
 						fakeInvoker.InvokeReturns(nil)
 
@@ -340,7 +340,7 @@ var _ = Describe("cephlocal", func() {
 
 						Expect(fakeInvoker.InvokeCallCount()).To(Equal(2)) // mount and umount commands
 						_, cmd, _ := fakeInvoker.InvokeArgsForCall(1)
-						Expect(cmd).To(Equal("umount"))
+						Expect(cmd).To(Equal("fusermount"))
 					})
 					It("only gets volume name, without Mountpoint", func() {
 						getResponse := getSuccessful(testLogger, driver, volumeName)

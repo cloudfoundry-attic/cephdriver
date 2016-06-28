@@ -19,15 +19,23 @@ type FakeInvoker struct {
 	invokeReturns struct {
 		result1 error
 	}
+	invocations      map[string][][]interface{}
+	invocationsMutex sync.RWMutex
 }
 
 func (fake *FakeInvoker) Invoke(logger lager.Logger, executable string, args []string) error {
+	var argsCopy []string
+	if args != nil {
+		argsCopy = make([]string, len(args))
+		copy(argsCopy, args)
+	}
 	fake.invokeMutex.Lock()
 	fake.invokeArgsForCall = append(fake.invokeArgsForCall, struct {
 		logger     lager.Logger
 		executable string
 		args       []string
-	}{logger, executable, args})
+	}{logger, executable, argsCopy})
+	fake.recordInvocation("Invoke", []interface{}{logger, executable, argsCopy})
 	fake.invokeMutex.Unlock()
 	if fake.InvokeStub != nil {
 		return fake.InvokeStub(logger, executable, args)
@@ -53,6 +61,26 @@ func (fake *FakeInvoker) InvokeReturns(result1 error) {
 	fake.invokeReturns = struct {
 		result1 error
 	}{result1}
+}
+
+func (fake *FakeInvoker) Invocations() map[string][][]interface{} {
+	fake.invocationsMutex.RLock()
+	defer fake.invocationsMutex.RUnlock()
+	fake.invokeMutex.RLock()
+	defer fake.invokeMutex.RUnlock()
+	return fake.invocations
+}
+
+func (fake *FakeInvoker) recordInvocation(key string, args []interface{}) {
+	fake.invocationsMutex.Lock()
+	defer fake.invocationsMutex.Unlock()
+	if fake.invocations == nil {
+		fake.invocations = map[string][][]interface{}{}
+	}
+	if fake.invocations[key] == nil {
+		fake.invocations[key] = [][]interface{}{}
+	}
+	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
 var _ cephlocal.Invoker = new(FakeInvoker)

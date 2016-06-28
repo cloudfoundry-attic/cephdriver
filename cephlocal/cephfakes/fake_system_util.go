@@ -36,6 +36,17 @@ type FakeSystemUtil struct {
 	removeReturns struct {
 		result1 error
 	}
+	ChmodStub        func(path string, perm os.FileMode) error
+	chmodMutex       sync.RWMutex
+	chmodArgsForCall []struct {
+		path string
+		perm os.FileMode
+	}
+	chmodReturns struct {
+		result1 error
+	}
+	invocations      map[string][][]interface{}
+	invocationsMutex sync.RWMutex
 }
 
 func (fake *FakeSystemUtil) MkdirAll(path string, perm os.FileMode) error {
@@ -44,6 +55,7 @@ func (fake *FakeSystemUtil) MkdirAll(path string, perm os.FileMode) error {
 		path string
 		perm os.FileMode
 	}{path, perm})
+	fake.recordInvocation("MkdirAll", []interface{}{path, perm})
 	fake.mkdirAllMutex.Unlock()
 	if fake.MkdirAllStub != nil {
 		return fake.MkdirAllStub(path, perm)
@@ -72,12 +84,18 @@ func (fake *FakeSystemUtil) MkdirAllReturns(result1 error) {
 }
 
 func (fake *FakeSystemUtil) WriteFile(filename string, data []byte, perm os.FileMode) error {
+	var dataCopy []byte
+	if data != nil {
+		dataCopy = make([]byte, len(data))
+		copy(dataCopy, data)
+	}
 	fake.writeFileMutex.Lock()
 	fake.writeFileArgsForCall = append(fake.writeFileArgsForCall, struct {
 		filename string
 		data     []byte
 		perm     os.FileMode
-	}{filename, data, perm})
+	}{filename, dataCopy, perm})
+	fake.recordInvocation("WriteFile", []interface{}{filename, dataCopy, perm})
 	fake.writeFileMutex.Unlock()
 	if fake.WriteFileStub != nil {
 		return fake.WriteFileStub(filename, data, perm)
@@ -110,6 +128,7 @@ func (fake *FakeSystemUtil) Remove(arg1 string) error {
 	fake.removeArgsForCall = append(fake.removeArgsForCall, struct {
 		arg1 string
 	}{arg1})
+	fake.recordInvocation("Remove", []interface{}{arg1})
 	fake.removeMutex.Unlock()
 	if fake.RemoveStub != nil {
 		return fake.RemoveStub(arg1)
@@ -135,6 +154,66 @@ func (fake *FakeSystemUtil) RemoveReturns(result1 error) {
 	fake.removeReturns = struct {
 		result1 error
 	}{result1}
+}
+
+func (fake *FakeSystemUtil) Chmod(path string, perm os.FileMode) error {
+	fake.chmodMutex.Lock()
+	fake.chmodArgsForCall = append(fake.chmodArgsForCall, struct {
+		path string
+		perm os.FileMode
+	}{path, perm})
+	fake.recordInvocation("Chmod", []interface{}{path, perm})
+	fake.chmodMutex.Unlock()
+	if fake.ChmodStub != nil {
+		return fake.ChmodStub(path, perm)
+	} else {
+		return fake.chmodReturns.result1
+	}
+}
+
+func (fake *FakeSystemUtil) ChmodCallCount() int {
+	fake.chmodMutex.RLock()
+	defer fake.chmodMutex.RUnlock()
+	return len(fake.chmodArgsForCall)
+}
+
+func (fake *FakeSystemUtil) ChmodArgsForCall(i int) (string, os.FileMode) {
+	fake.chmodMutex.RLock()
+	defer fake.chmodMutex.RUnlock()
+	return fake.chmodArgsForCall[i].path, fake.chmodArgsForCall[i].perm
+}
+
+func (fake *FakeSystemUtil) ChmodReturns(result1 error) {
+	fake.ChmodStub = nil
+	fake.chmodReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeSystemUtil) Invocations() map[string][][]interface{} {
+	fake.invocationsMutex.RLock()
+	defer fake.invocationsMutex.RUnlock()
+	fake.mkdirAllMutex.RLock()
+	defer fake.mkdirAllMutex.RUnlock()
+	fake.writeFileMutex.RLock()
+	defer fake.writeFileMutex.RUnlock()
+	fake.removeMutex.RLock()
+	defer fake.removeMutex.RUnlock()
+	fake.chmodMutex.RLock()
+	defer fake.chmodMutex.RUnlock()
+	return fake.invocations
+}
+
+func (fake *FakeSystemUtil) recordInvocation(key string, args []interface{}) {
+	fake.invocationsMutex.Lock()
+	defer fake.invocationsMutex.Unlock()
+	if fake.invocations == nil {
+		fake.invocations = map[string][][]interface{}{}
+	}
+	if fake.invocations[key] == nil {
+		fake.invocations[key] = [][]interface{}{}
+	}
+	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
 var _ cephlocal.SystemUtil = new(FakeSystemUtil)
