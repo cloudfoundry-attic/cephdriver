@@ -10,6 +10,8 @@ import (
 	"github.com/cloudfoundry-incubator/volman/voldriver"
 	"github.com/pivotal-golang/lager"
 
+	"os/exec"
+
 	"github.com/cloudfoundry/gunk/os_wrap/exec_wrap"
 )
 
@@ -329,8 +331,11 @@ func (f *realSystemUtil) Remove(path string) error {
 	return os.Remove(path)
 }
 
-func (f *realSystemUtil) Chmod(path string, perm os.FileMode) error {
-	return os.Chmod(path, perm)
+func (f *realSystemUtil) Chmod(path string, perm os.FileMode) (err error) {
+	//return os.Chmod(path, perm)
+	cmd := exec.Command("chmod", "777", path)
+	_, err = cmd.Output()
+	return
 }
 
 //go:generate counterfeiter -o ./cephfakes/fake_invoker.go . Invoker
