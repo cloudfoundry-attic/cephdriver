@@ -14,7 +14,7 @@ import (
 	"syscall"
 
 	cf_debug_server "github.com/cloudfoundry-incubator/cf-debug-server"
-	cf_lager "github.com/cloudfoundry-incubator/cf-lager"
+	cf_lager "code.cloudfoundry.org/cflager"
 )
 
 func init() {
