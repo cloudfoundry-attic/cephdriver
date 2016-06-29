@@ -6,7 +6,7 @@ import (
 
 	"github.com/cloudfoundry-incubator/cephdriver/cephlocal"
 	"github.com/cloudfoundry-incubator/cephdriver/cephlocal/cephfakes"
-	"github.com/cloudfoundry-incubator/volman/voldriver"
+	"github.com/cloudfoundry-incubator/voldriver"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

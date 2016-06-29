@@ -13,8 +13,8 @@ import (
 
 	"regexp"
 
-	"github.com/cloudfoundry-incubator/volman/voldriver"
-	"github.com/cloudfoundry-incubator/volman/voldriver/driverhttp"
+	"github.com/cloudfoundry-incubator/voldriver"
+	"github.com/cloudfoundry-incubator/voldriver/driverhttp"
 	"github.com/pivotal-golang/lager"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/http_server"
