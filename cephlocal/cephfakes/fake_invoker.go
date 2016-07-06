@@ -4,8 +4,8 @@ package cephfakes
 import (
 	"sync"
 
+	"code.cloudfoundry.org/lager"
 	"github.com/cloudfoundry-incubator/cephdriver/cephlocal"
-	"github.com/pivotal-golang/lager"
 )
 
 type FakeInvoker struct {

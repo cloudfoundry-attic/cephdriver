@@ -4,14 +4,15 @@ import (
 	"bytes"
 	"fmt"
 
+	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/lager/lagertest"
+
 	"github.com/cloudfoundry-incubator/cephdriver/cephlocal"
 	"github.com/cloudfoundry-incubator/cephdriver/cephlocal/cephfakes"
 	"github.com/cloudfoundry-incubator/voldriver"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/pivotal-golang/lager"
-	"github.com/pivotal-golang/lager/lagertest"
 
 	"github.com/cloudfoundry/gunk/os_wrap/exec_wrap/execfakes"
 )
