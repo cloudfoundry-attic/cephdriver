@@ -1,17 +1,23 @@
 #!/bin/bash
-"${DRIVERS_PATH:?DRIVERS_PATH must be set}"
+
+set -x
+
+function usage() {
+    echo "Usage: startdriver.sh listen-addr drivers-path"
+    echo $1
+    exit 1
+}
+
+if [ -z "$1" ] || [ "$1" == "" ]; then usage 'Listen address not set'; fi
+if [ -z "$2" ] || [ "$2" == "" ]; then usage 'Drivers path not set'; fi
+
+listen_addr=$1
+drivers_path=$2
 
 cd `dirname $0`
 
-pkill -f cephdriver
+killall -9 cephdriver
 
 mkdir -p ../mountdir
 
-if [ $TRANSPORT == "tcp" ];
-then
-echo "RUNNING TCP ACCEPTANCE"
-../exec/cephdriver -listenAddr="0.0.0.0:9750" -transport="tcp" -driversPath="$DRIVERS_PATH" &
-else
-echo "RUNNING UNIX ACCEPTANCE"
-../exec/cephdriver -listenAddr="${driversPath}/cephdriver.sock" -transport="unix" -driversPath="$DRIVERS_PATH" &
-fi
+ ../exec/cephdriver -listenAddr="${listen_addr}" -transport="$TRANSPORT" -driversPath="$drivers_path" &
