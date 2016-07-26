@@ -157,6 +157,12 @@ func (d *LocalDriver) Activate(logger lager.Logger) voldriver.ActivateResponse {
 	}
 }
 
+func (d *LocalDriver) Capabilities(logger lager.Logger) voldriver.CapabilitiesResponse {
+	return voldriver.CapabilitiesResponse{
+		Capabilities: voldriver.CapabilityInfo{Scope: "global"},
+	}
+}
+
 func (d *LocalDriver) List(logger lager.Logger) voldriver.ListResponse {
 	listResponse := voldriver.ListResponse{}
 	volInfo := voldriver.VolumeInfo{}
