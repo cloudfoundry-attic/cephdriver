@@ -10,7 +10,7 @@ import (
 	"github.com/tedsuo/ifrit/grouper"
 	"github.com/tedsuo/ifrit/sigmon"
 
-	"github.com/cloudfoundry-incubator/cephdriver/cephlocal"
+	"code.cloudfoundry.org/cephdriver/cephlocal"
 
 	"syscall"
 

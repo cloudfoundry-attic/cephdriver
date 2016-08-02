@@ -7,8 +7,8 @@ import (
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/lager/lagertest"
 
-	"github.com/cloudfoundry-incubator/cephdriver/cephlocal"
-	"github.com/cloudfoundry-incubator/cephdriver/cephlocal/cephfakes"
+	"code.cloudfoundry.org/cephdriver/cephlocal"
+	"code.cloudfoundry.org/cephdriver/cephlocal/cephfakes"
 	"code.cloudfoundry.org/voldriver"
 
 	. "github.com/onsi/ginkgo"

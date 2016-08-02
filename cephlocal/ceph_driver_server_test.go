@@ -10,7 +10,7 @@ import (
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/lager/lagertest"
 
-	"github.com/cloudfoundry-incubator/cephdriver/cephlocal"
+	"code.cloudfoundry.org/cephdriver/cephlocal"
 )
 
 var _ = Describe("Ceph Driver Server", func() {

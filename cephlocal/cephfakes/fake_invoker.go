@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/lager"
-	"github.com/cloudfoundry-incubator/cephdriver/cephlocal"
+	"code.cloudfoundry.org/cephdriver/cephlocal"
 )
 
 type FakeInvoker struct {

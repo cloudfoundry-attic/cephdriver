@@ -37,7 +37,7 @@ func (stringCloser) Close() error { return nil }
 // var _ = SynchronizedBeforeSuite(func() []byte {
 // 	var err error
 
-// 	cephdriverPath, err = gexec.Build("github.com/cloudfoundry-incubator/cephdriver/cmd/cephdriver", "-race")
+// 	cephdriverPath, err = gexec.Build("code.cloudfoundry.org/cephdriver/cmd/cephdriver", "-race")
 // 	Expect(err).NotTo(HaveOccurred())
 // 	return []byte(cephdriverPath)
 // }, func(pathsByte []byte) {
