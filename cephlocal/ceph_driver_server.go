@@ -15,8 +15,8 @@ import (
 
 	"code.cloudfoundry.org/lager"
 
-	"github.com/cloudfoundry-incubator/voldriver"
-	"github.com/cloudfoundry-incubator/voldriver/driverhttp"
+	"code.cloudfoundry.org/voldriver"
+	"code.cloudfoundry.org/voldriver/driverhttp"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/http_server"
 )

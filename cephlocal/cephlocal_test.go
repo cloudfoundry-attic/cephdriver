@@ -9,7 +9,7 @@ import (
 
 	"github.com/cloudfoundry-incubator/cephdriver/cephlocal"
 	"github.com/cloudfoundry-incubator/cephdriver/cephlocal/cephfakes"
-	"github.com/cloudfoundry-incubator/voldriver"
+	"code.cloudfoundry.org/voldriver"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

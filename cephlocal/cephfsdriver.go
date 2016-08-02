@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/lager"
-	"github.com/cloudfoundry-incubator/voldriver"
+	"code.cloudfoundry.org/voldriver"
 
 	"github.com/cloudfoundry/gunk/os_wrap/exec_wrap"
 )
