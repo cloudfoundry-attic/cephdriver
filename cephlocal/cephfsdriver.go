@@ -2,8 +2,6 @@ package cephlocal
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 	"strings"
 	"time"
 
@@ -11,6 +9,9 @@ import (
 	"code.cloudfoundry.org/voldriver"
 
 	"github.com/cloudfoundry/gunk/os_wrap/exec_wrap"
+	"code.cloudfoundry.org/goshims/ioutil"
+	osshim "code.cloudfoundry.org/goshims/os"
+	"os"
 )
 
 type LocalDriver struct { // see voldriver.resources.go
@@ -18,7 +19,8 @@ type LocalDriver struct { // see voldriver.resources.go
 	logFile       string
 	volumes       map[string]*volumeMetadata
 	useInvoker    Invoker
-	useSystemUtil SystemUtil
+	os 						osshim.Os
+	ioutil 				ioutilshim.Ioutil
 }
 type volumeMetadata struct {
 	Keyring          string
@@ -34,11 +36,11 @@ func (v *volumeMetadata) equals(volume *volumeMetadata) bool {
 }
 
 func NewLocalDriver() *LocalDriver {
-	return NewLocalDriverWithInvokerAndSystemUtil(NewRealInvoker(), NewRealSystemUtil())
+	return NewLocalDriverWithInvokerAndSystemUtil(NewRealInvoker(), &osshim.OsShim{}, &ioutilshim.IoutilShim{})
 }
 
-func NewLocalDriverWithInvokerAndSystemUtil(invoker Invoker, systemUtil SystemUtil) *LocalDriver {
-	return &LocalDriver{"_cephdriver/", "/tmp/cephdriver.log", map[string]*volumeMetadata{}, invoker, systemUtil}
+func NewLocalDriverWithInvokerAndSystemUtil(invoker Invoker, os osshim.Os, ioutil ioutilshim.Ioutil) *LocalDriver {
+	return &LocalDriver{"_cephdriver/", "/tmp/cephdriver.log", map[string]*volumeMetadata{}, invoker, os, ioutil}
 }
 
 func (d *LocalDriver) Create(logger lager.Logger, createRequest voldriver.CreateRequest) voldriver.ErrorResponse {
@@ -200,13 +202,13 @@ func (d *LocalDriver) Mount(logger lager.Logger, mountRequest voldriver.MountReq
 
 	volume.KeyPath = fmt.Sprintf("/tmp/keypath_%#v", time.Now().UnixNano())
 
-	err := d.useSystemUtil.WriteFile(volume.KeyPath, content, 0777)
+	err := d.ioutil.WriteFile(volume.KeyPath, content, 0777)
 	if err != nil {
 		logger.Error("Error mounting volume", err)
 		return voldriver.MountResponse{Err: fmt.Sprintf("Error mounting '%s' (%s)", mountRequest.Name, err.Error())}
 	}
 
-	err = d.useSystemUtil.MkdirAll(volume.LocalMountPoint, os.ModePerm)
+	err = d.os.MkdirAll(volume.LocalMountPoint, os.ModePerm)
 	if err != nil {
 		logger.Error("failed-creating-localmountpoint", err)
 		return voldriver.MountResponse{Err: fmt.Sprintf("Unable to create local mount point for volume '%s'", mountRequest.Name)}
@@ -285,12 +287,12 @@ func (d *LocalDriver) unmount(logger lager.Logger, volume *volumeMetadata, volum
 		return voldriver.ErrorResponse{Err: fmt.Sprintf("Error unmounting '%s' (%s)", volumeName, err.Error())}
 	}
 	volume.MountCount = 0
-	err := d.useSystemUtil.Remove(volume.KeyPath)
+	err := d.os.Remove(volume.KeyPath)
 	if err != nil {
 		logger.Error("Error deleting file", err)
 		return voldriver.ErrorResponse{Err: fmt.Sprintf("Error unmounting '%s' (%s)", volumeName, err.Error())}
 	}
-	err = d.useSystemUtil.Remove(volume.LocalMountPoint)
+	err = d.os.Remove(volume.LocalMountPoint)
 	if err != nil {
 		logger.Error("Error deleting local mountpoint", err)
 		return voldriver.ErrorResponse{Err: fmt.Sprintf("Error unmounting '%s' (%s)", volumeName, err.Error())}
@@ -301,36 +303,6 @@ func (d *LocalDriver) unmount(logger lager.Logger, volume *volumeMetadata, volum
 func (d *LocalDriver) callCeph(logger lager.Logger, args []string) error {
 	cmd := "ceph-fuse"
 	return d.useInvoker.Invoke(logger, cmd, args)
-}
-
-//go:generate counterfeiter -o ./cephfakes/fake_system_util.go . SystemUtil
-
-type SystemUtil interface {
-	MkdirAll(path string, perm os.FileMode) error
-	WriteFile(filename string, data []byte, perm os.FileMode) error
-	Remove(string) error
-	Chmod(path string, perm os.FileMode) error
-}
-type realSystemUtil struct{}
-
-func NewRealSystemUtil() SystemUtil {
-	return &realSystemUtil{}
-}
-
-func (f *realSystemUtil) MkdirAll(path string, perm os.FileMode) error {
-	return os.MkdirAll(path, perm)
-}
-
-func (f *realSystemUtil) WriteFile(filename string, data []byte, perm os.FileMode) error {
-	return ioutil.WriteFile(filename, data, perm)
-}
-
-func (f *realSystemUtil) Remove(path string) error {
-	return os.Remove(path)
-}
-
-func (f *realSystemUtil) Chmod(path string, perm os.FileMode) (err error) {
-	return os.Chmod(path, perm)
 }
 
 //go:generate counterfeiter -o ./cephfakes/fake_invoker.go . Invoker

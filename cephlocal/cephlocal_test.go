@@ -14,22 +14,26 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"code.cloudfoundry.org/goshims/ioutil/ioutil_fake"
+	"code.cloudfoundry.org/goshims/os/os_fake"
 	"github.com/cloudfoundry/gunk/os_wrap/exec_wrap/execfakes"
 )
 
 var _ = Describe("cephlocal", func() {
 
 	var (
-		driver         voldriver.Driver
-		fakeInvoker    *cephfakes.FakeInvoker
-		fakeSystemUtil *cephfakes.FakeSystemUtil
-		testLogger     lager.Logger
+		driver      voldriver.Driver
+		fakeInvoker *cephfakes.FakeInvoker
+		fakeOs      *os_fake.FakeOs
+		fakeIoutil  *ioutil_fake.FakeIoutil
+		testLogger  lager.Logger
 	)
 
 	BeforeEach(func() {
 		fakeInvoker = new(cephfakes.FakeInvoker)
-		fakeSystemUtil = new(cephfakes.FakeSystemUtil)
-		driver = cephlocal.NewLocalDriverWithInvokerAndSystemUtil(fakeInvoker, fakeSystemUtil)
+		fakeOs = new(os_fake.FakeOs)
+		fakeIoutil = new (ioutil_fake.FakeIoutil)
+		driver = cephlocal.NewLocalDriverWithInvokerAndSystemUtil(fakeInvoker, fakeOs, fakeIoutil)
 		testLogger = lagertest.NewTestLogger("CephdriverTest")
 	})
 
@@ -144,8 +148,8 @@ var _ = Describe("cephlocal", func() {
 					fakeInvoker.InvokeReturns(nil)
 					mountSuccessful(testLogger, driver, volumeName)
 
-					Expect(fakeSystemUtil.MkdirAllCallCount()).To(Equal(1))
-					path, _ := fakeSystemUtil.MkdirAllArgsForCall(0)
+					Expect(fakeOs.MkdirAllCallCount()).To(Equal(1))
+					path, _ := fakeOs.MkdirAllArgsForCall(0)
 					Expect(path).To(Equal("some-localmountpoint"))
 				})
 
@@ -193,8 +197,8 @@ var _ = Describe("cephlocal", func() {
 					fakeInvoker.InvokeReturns(nil)
 					mountSuccessful(testLogger, driver, volumeName)
 
-					Expect(fakeSystemUtil.MkdirAllCallCount()).To(Equal(1))
-					path, _ := fakeSystemUtil.MkdirAllArgsForCall(0)
+					Expect(fakeOs.MkdirAllCallCount()).To(Equal(1))
+					path, _ := fakeOs.MkdirAllArgsForCall(0)
 					Expect(path).To(Equal("some-localmountpoint"))
 				})
 
@@ -231,7 +235,7 @@ var _ = Describe("cephlocal", func() {
 			})
 
 			It("should report an error if keyfile creation errors", func() {
-				fakeSystemUtil.WriteFileReturns(fmt.Errorf("error writing file"))
+				fakeIoutil.WriteFileReturns(fmt.Errorf("error writing file"))
 				mountRequest := voldriver.MountRequest{Name: volumeName}
 				mountResponse = driver.Mount(testLogger, mountRequest)
 				Expect(mountResponse.Err).To(Equal(fmt.Sprintf("Error mounting '%s' (error writing file)", volumeName)))
@@ -249,8 +253,8 @@ var _ = Describe("cephlocal", func() {
 					fakeInvoker.InvokeReturns(nil)
 					mountSuccessful(testLogger, driver, volumeName)
 
-					Expect(fakeSystemUtil.MkdirAllCallCount()).To(Equal(1))
-					path, _ := fakeSystemUtil.MkdirAllArgsForCall(0)
+					Expect(fakeOs.MkdirAllCallCount()).To(Equal(1))
+					path, _ := fakeOs.MkdirAllArgsForCall(0)
 					Expect(path).To(Equal("some-localmountpoint"))
 				})
 
@@ -261,7 +265,7 @@ var _ = Describe("cephlocal", func() {
 				})
 
 				It("creates a keyfile", func() {
-					Expect(fakeSystemUtil.WriteFileCallCount()).To(Equal(1))
+					Expect(fakeIoutil.WriteFileCallCount()).To(Equal(1))
 				})
 
 				It("can get the volume and it is mounted path", func() {
@@ -321,7 +325,7 @@ var _ = Describe("cephlocal", func() {
 					Expect(cmd).To(Equal("ceph-fuse"))
 				})
 				It("should report an error if remove config file fails", func() {
-					fakeSystemUtil.RemoveReturns(fmt.Errorf("file deletion failed"))
+					fakeOs.RemoveReturns(fmt.Errorf("file deletion failed"))
 					unmountRequest := voldriver.UnmountRequest{Name: volumeName}
 					unmountResponse = driver.Unmount(testLogger, unmountRequest)
 					Expect(unmountResponse.Err).To(Equal(fmt.Sprintf("Error unmounting '%s' (file deletion failed)", volumeName)))
@@ -348,8 +352,8 @@ var _ = Describe("cephlocal", func() {
 						Expect(getResponse.Volume.Mountpoint).To(Equal(""))
 					})
 					It("removes keyfile and local mountpoint directory", func() {
-						Expect(fakeSystemUtil.RemoveCallCount()).To(Equal(2))
-						mountPointPath := fakeSystemUtil.RemoveArgsForCall(1)
+						Expect(fakeOs.RemoveCallCount()).To(Equal(2))
+						mountPointPath := fakeOs.RemoveArgsForCall(1)
 						Expect(mountPointPath).To(Equal("some-localmountpoint"))
 					})
 				})
@@ -409,8 +413,8 @@ var _ = Describe("cephlocal", func() {
 					})
 					Expect(removeResponse.Err).To(Equal(""))
 					getUnsuccessful(testLogger, driver, volumeName)
-					Expect(fakeSystemUtil.RemoveCallCount()).To(Equal(2))
-					mountPointPath := fakeSystemUtil.RemoveArgsForCall(1)
+					Expect(fakeOs.RemoveCallCount()).To(Equal(2))
+					mountPointPath := fakeOs.RemoveArgsForCall(1)
 					Expect(mountPointPath).To(Equal("some-localmountpoint"))
 				})
 				Context("when unmount fails", func() {
