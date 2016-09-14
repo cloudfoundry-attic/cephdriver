@@ -8,7 +8,7 @@ import (
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/voldriver"
 
-	"github.com/cloudfoundry/gunk/os_wrap/exec_wrap"
+	"code.cloudfoundry.org/goshims/execshim"
 	"code.cloudfoundry.org/goshims/ioutil"
 	osshim "code.cloudfoundry.org/goshims/os"
 	"os"
@@ -312,14 +312,14 @@ type Invoker interface {
 }
 
 type realInvoker struct {
-	useExec exec_wrap.Exec
+	useExec execshim.Exec
 }
 
 func NewRealInvoker() Invoker {
-	return NewRealInvokerWithExec(exec_wrap.NewExec())
+	return NewRealInvokerWithExec(&execshim.ExecShim{})
 }
 
-func NewRealInvokerWithExec(useExec exec_wrap.Exec) Invoker {
+func NewRealInvokerWithExec(useExec execshim.Exec) Invoker {
 	return &realInvoker{useExec}
 }
 
