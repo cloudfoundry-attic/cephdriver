@@ -9,9 +9,10 @@ import (
 	"code.cloudfoundry.org/voldriver"
 
 	"code.cloudfoundry.org/goshims/execshim"
-	"code.cloudfoundry.org/goshims/ioutil"
-	osshim "code.cloudfoundry.org/goshims/os"
 	"os"
+	"code.cloudfoundry.org/goshims/ioutilshim"
+	"code.cloudfoundry.org/goshims/osshim"
+	"code.cloudfoundry.org/voldriver/driverhttp"
 )
 
 type LocalDriver struct { // see voldriver.resources.go
@@ -43,8 +44,8 @@ func NewLocalDriverWithInvokerAndSystemUtil(invoker Invoker, os osshim.Os, iouti
 	return &LocalDriver{"_cephdriver/", "/tmp/cephdriver.log", map[string]*volumeMetadata{}, invoker, os, ioutil}
 }
 
-func (d *LocalDriver) Create(logger lager.Logger, createRequest voldriver.CreateRequest) voldriver.ErrorResponse {
-	logger = logger.Session("create", lager.Data{"request": createRequest})
+func (d *LocalDriver) Create(env voldriver.Env, createRequest voldriver.CreateRequest) voldriver.ErrorResponse {
+	logger := (*env.Logger()).Session("create", lager.Data{"request": createRequest})
 	logger.Info("start")
 	defer logger.Info("end")
 
@@ -56,36 +57,37 @@ func (d *LocalDriver) Create(logger lager.Logger, createRequest voldriver.Create
 		err              *voldriver.ErrorResponse
 	)
 
-	ip, err = extractValue(logger, "ip", createRequest.Opts)
+	ip, err = extractValue(env, "ip", createRequest.Opts)
 	if err != nil {
 		return *err
 	}
 
-	keyring, err = extractValue(logger, "keyring", createRequest.Opts)
+	keyring, err = extractValue(env, "keyring", createRequest.Opts)
 	if err != nil {
 		return *err
 	}
 
-	remoteMountPoint, err = extractValue(logger, "remote_mount_point", createRequest.Opts)
+	remoteMountPoint, err = extractValue(env, "remote_mount_point", createRequest.Opts)
 	if err != nil {
 		return *err
 	}
 
-	localMountPoint, err = extractValue(logger, "local_mount_point", createRequest.Opts)
+	localMountPoint, err = extractValue(env, "local_mount_point", createRequest.Opts)
 	if err != nil {
 		return *err
 	}
 
-	return d.create(logger, createRequest.Name, ip, keyring, remoteMountPoint, localMountPoint)
+	return d.create(env, createRequest.Name, ip, keyring, remoteMountPoint, localMountPoint)
 }
 
 func successfullResponse() voldriver.ErrorResponse {
 	return voldriver.ErrorResponse{}
 }
 
-func (d *LocalDriver) create(logger lager.Logger, name, ip, keyring, remotemountpoint, localmountpoint string) voldriver.ErrorResponse {
+func (d *LocalDriver) create(env voldriver.Env, name, ip, keyring, remotemountpoint, localmountpoint string) voldriver.ErrorResponse {
 	var volume *volumeMetadata
 	var ok bool
+	logger := (*env.Logger())
 
 	newVolume := &volumeMetadata{LocalMountPoint: localmountpoint, RemoteMountPoint: remotemountpoint, Keyring: keyring, IP: ip}
 
@@ -105,10 +107,13 @@ func (d *LocalDriver) create(logger lager.Logger, name, ip, keyring, remotemount
 
 }
 
-func extractValue(logger lager.Logger, value string, opts map[string]interface{}) (string, *voldriver.ErrorResponse) {
+func extractValue(env voldriver.Env, value string, opts map[string]interface{}) (string, *voldriver.ErrorResponse) {
 	var aString interface{}
 	var str string
 	var ok bool
+
+	logger := (*env.Logger())
+
 	if aString, ok = opts[value]; !ok {
 		logger.Info("missing-config-value", lager.Data{"key": value})
 		return "", &voldriver.ErrorResponse{Err: "Missing mandatory '" + value + "' field in 'Opts'"}
@@ -120,8 +125,8 @@ func extractValue(logger lager.Logger, value string, opts map[string]interface{}
 	return str, nil
 }
 
-func (d *LocalDriver) Get(logger lager.Logger, getRequest voldriver.GetRequest) voldriver.GetResponse {
-	logger = logger.Session("Get")
+func (d *LocalDriver) Get(env voldriver.Env, getRequest voldriver.GetRequest) voldriver.GetResponse {
+	logger := (*env.Logger()).Session("Get")
 	logger.Info("start")
 	defer logger.Info("end")
 	if volume, ok := d.volumes[getRequest.Name]; ok {
@@ -135,8 +140,8 @@ func (d *LocalDriver) Get(logger lager.Logger, getRequest voldriver.GetRequest) 
 	return voldriver.GetResponse{Err: fmt.Sprintf("Volume '%s' not found", getRequest.Name)}
 }
 
-func (d *LocalDriver) Path(logger lager.Logger, getRequest voldriver.PathRequest) voldriver.PathResponse {
-	logger = logger.Session("Path")
+func (d *LocalDriver) Path(env voldriver.Env, getRequest voldriver.PathRequest) voldriver.PathResponse {
+	logger := (*env.Logger()).Session("Path")
 	logger.Info("start")
 	defer logger.Info("end")
 
@@ -152,20 +157,20 @@ func (d *LocalDriver) Path(logger lager.Logger, getRequest voldriver.PathRequest
 	return voldriver.PathResponse{Err: fmt.Sprintf("Volume '%s' not found", getRequest.Name)}
 }
 
-func (d *LocalDriver) Activate(logger lager.Logger) voldriver.ActivateResponse {
+func (d *LocalDriver) Activate(env voldriver.Env) voldriver.ActivateResponse {
 
 	return voldriver.ActivateResponse{
 		Implements: []string{"VolumeDriver"},
 	}
 }
 
-func (d *LocalDriver) Capabilities(logger lager.Logger) voldriver.CapabilitiesResponse {
+func (d *LocalDriver) Capabilities(env voldriver.Env) voldriver.CapabilitiesResponse {
 	return voldriver.CapabilitiesResponse{
 		Capabilities: voldriver.CapabilityInfo{Scope: "global"},
 	}
 }
 
-func (d *LocalDriver) List(logger lager.Logger) voldriver.ListResponse {
+func (d *LocalDriver) List(env voldriver.Env) voldriver.ListResponse {
 	listResponse := voldriver.ListResponse{}
 	volInfo := voldriver.VolumeInfo{}
 	for volumeName, volume := range d.volumes {
@@ -181,8 +186,8 @@ func (d *LocalDriver) List(logger lager.Logger) voldriver.ListResponse {
 	return listResponse
 }
 
-func (d *LocalDriver) Mount(logger lager.Logger, mountRequest voldriver.MountRequest) voldriver.MountResponse {
-	logger = logger.Session("Mount")
+func (d *LocalDriver) Mount(env voldriver.Env, mountRequest voldriver.MountRequest) voldriver.MountResponse {
+	logger := (*env.Logger()).Session("Mount")
 	logger.Info("start")
 	defer logger.Info("end")
 	var volume *volumeMetadata
@@ -215,7 +220,7 @@ func (d *LocalDriver) Mount(logger lager.Logger, mountRequest voldriver.MountReq
 	}
 
 	cmdArgs := []string{"-k", volume.KeyPath, "-m", fmt.Sprintf("%s:6789", volume.IP), "-r", volume.RemoteMountPoint, volume.LocalMountPoint}
-	if err := d.callCeph(logger, cmdArgs); err != nil {
+	if err := d.callCeph(env, cmdArgs); err != nil {
 		logger.Error("Error mounting volume", err)
 		return voldriver.MountResponse{Err: fmt.Sprintf("Error mounting '%s' (%s)", mountRequest.Name, err.Error())}
 	}
@@ -225,8 +230,8 @@ func (d *LocalDriver) Mount(logger lager.Logger, mountRequest voldriver.MountReq
 	return voldriver.MountResponse{Mountpoint: volume.LocalMountPoint}
 }
 
-func (d *LocalDriver) Unmount(logger lager.Logger, unmountRequest voldriver.UnmountRequest) voldriver.ErrorResponse {
-	logger = logger.Session("Unmount")
+func (d *LocalDriver) Unmount(env voldriver.Env, unmountRequest voldriver.UnmountRequest) voldriver.ErrorResponse {
+	logger := (*env.Logger()).Session("Unmount")
 	logger.Info("start")
 	defer logger.Info("end")
 
@@ -240,11 +245,11 @@ func (d *LocalDriver) Unmount(logger lager.Logger, unmountRequest voldriver.Unmo
 		logger.Info("unmount-volume-not-mounted", lager.Data{"volume_name": unmountRequest.Name})
 		return voldriver.ErrorResponse{Err: fmt.Sprintf("Volume '%s' not mounted", unmountRequest.Name)}
 	}
-	return d.unmount(logger, volume, unmountRequest.Name)
+	return d.unmount(driverhttp.EnvWithLogger(&logger, env), volume, unmountRequest.Name)
 }
 
-func (d *LocalDriver) Remove(logger lager.Logger, removeRequest voldriver.RemoveRequest) voldriver.ErrorResponse {
-	logger = logger.Session("remove", lager.Data{"volume": removeRequest})
+func (d *LocalDriver) Remove(env voldriver.Env, removeRequest voldriver.RemoveRequest) voldriver.ErrorResponse {
+	logger := (*env.Logger()).Session("remove", lager.Data{"volume": removeRequest})
 	logger.Info("start")
 	defer logger.Info("end")
 
@@ -261,7 +266,7 @@ func (d *LocalDriver) Remove(logger lager.Logger, removeRequest voldriver.Remove
 	}
 
 	for vol.MountCount > 0 {
-		response = d.unmount(logger, vol, removeRequest.Name)
+		response = d.unmount(driverhttp.EnvWithLogger(&logger, env), vol, removeRequest.Name)
 		if response.Err != "" {
 			return response
 		}
@@ -272,7 +277,8 @@ func (d *LocalDriver) Remove(logger lager.Logger, removeRequest voldriver.Remove
 	return voldriver.ErrorResponse{}
 }
 
-func (d *LocalDriver) unmount(logger lager.Logger, volume *volumeMetadata, volumeName string) voldriver.ErrorResponse {
+func (d *LocalDriver) unmount(env voldriver.Env, volume *volumeMetadata, volumeName string) voldriver.ErrorResponse {
+	logger := (*env.Logger())
 	logger.Info("umount-found-volume", lager.Data{"metadata": volume})
 
 	if volume.MountCount > 1 {
@@ -282,7 +288,7 @@ func (d *LocalDriver) unmount(logger lager.Logger, volume *volumeMetadata, volum
 	}
 
 	cmdArgs := []string{"-u", volume.LocalMountPoint}
-	if err := d.useInvoker.Invoke(logger, "fusermount", cmdArgs); err != nil {
+	if err := d.useInvoker.Invoke(env, "fusermount", cmdArgs); err != nil {
 		logger.Error("Error invoking CLI", err)
 		return voldriver.ErrorResponse{Err: fmt.Sprintf("Error unmounting '%s' (%s)", volumeName, err.Error())}
 	}
@@ -300,15 +306,15 @@ func (d *LocalDriver) unmount(logger lager.Logger, volume *volumeMetadata, volum
 	return voldriver.ErrorResponse{}
 }
 
-func (d *LocalDriver) callCeph(logger lager.Logger, args []string) error {
+func (d *LocalDriver) callCeph(env voldriver.Env, args []string) error {
 	cmd := "ceph-fuse"
-	return d.useInvoker.Invoke(logger, cmd, args)
+	return d.useInvoker.Invoke(env, cmd, args)
 }
 
 //go:generate counterfeiter -o ./cephfakes/fake_invoker.go . Invoker
 
 type Invoker interface {
-	Invoke(logger lager.Logger, executable string, args []string) error
+	Invoke(env voldriver.Env, executable string, args []string) error
 }
 
 type realInvoker struct {
@@ -323,12 +329,12 @@ func NewRealInvokerWithExec(useExec execshim.Exec) Invoker {
 	return &realInvoker{useExec}
 }
 
-func (r *realInvoker) Invoke(logger lager.Logger, executable string, cmdArgs []string) error {
-	logger = logger.Session("invoking-command", lager.Data{"executable": executable, "args": cmdArgs})
+func (r *realInvoker) Invoke(env voldriver.Env, executable string, cmdArgs []string) error {
+	logger := (*env.Logger()).Session("invoking-command", lager.Data{"executable": executable, "args": cmdArgs})
 	logger.Info("start")
 	defer logger.Info("end")
 
-	cmdHandle := r.useExec.Command(executable, cmdArgs...)
+	cmdHandle := r.useExec.CommandContext((*env.Context()), executable, cmdArgs...)
 
 	_, err := cmdHandle.StdoutPipe()
 	if err != nil {
