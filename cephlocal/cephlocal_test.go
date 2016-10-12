@@ -40,7 +40,7 @@ var _ = Describe("cephlocal", func() {
 		driver = cephlocal.NewLocalDriverWithInvokerAndSystemUtil(fakeInvoker, fakeOs, fakeIoutil)
 		testLogger = lagertest.NewTestLogger("CephdriverTest")
 		testCtx = context.TODO()
-		testEnv = driverhttp.NewHttpDriverEnv(&testLogger, &testCtx)
+		testEnv = driverhttp.NewHttpDriverEnv(testLogger, testCtx)
 	})
 
 	Describe(".Activate", func() {
@@ -456,7 +456,7 @@ var _ = Describe("RealInvoker", func() {
 		BeforeEach(func() {
 			testLogger = lagertest.NewTestLogger("InvokerTest")
 			testCtx  = context.TODO()
-			testEnv = driverhttp.NewHttpDriverEnv(&testLogger, &testCtx)
+			testEnv = driverhttp.NewHttpDriverEnv(testLogger, testCtx)
 			fakeExec = new(exec_fake.FakeExec)
 			fakeCmd = new(exec_fake.FakeCmd)
 			fakeExec.CommandContextReturns(fakeCmd)

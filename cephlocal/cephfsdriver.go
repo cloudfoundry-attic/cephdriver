@@ -45,7 +45,7 @@ func NewLocalDriverWithInvokerAndSystemUtil(invoker Invoker, os osshim.Os, iouti
 }
 
 func (d *LocalDriver) Create(env voldriver.Env, createRequest voldriver.CreateRequest) voldriver.ErrorResponse {
-	logger := (*env.Logger()).Session("create", lager.Data{"request": createRequest})
+	logger := env.Logger().Session("create", lager.Data{"request": createRequest})
 	logger.Info("start")
 	defer logger.Info("end")
 
@@ -87,7 +87,7 @@ func successfullResponse() voldriver.ErrorResponse {
 func (d *LocalDriver) create(env voldriver.Env, name, ip, keyring, remotemountpoint, localmountpoint string) voldriver.ErrorResponse {
 	var volume *volumeMetadata
 	var ok bool
-	logger := (*env.Logger())
+	logger := env.Logger()
 
 	newVolume := &volumeMetadata{LocalMountPoint: localmountpoint, RemoteMountPoint: remotemountpoint, Keyring: keyring, IP: ip}
 
@@ -112,7 +112,7 @@ func extractValue(env voldriver.Env, value string, opts map[string]interface{}) 
 	var str string
 	var ok bool
 
-	logger := (*env.Logger())
+	logger := env.Logger()
 
 	if aString, ok = opts[value]; !ok {
 		logger.Info("missing-config-value", lager.Data{"key": value})
@@ -126,7 +126,7 @@ func extractValue(env voldriver.Env, value string, opts map[string]interface{}) 
 }
 
 func (d *LocalDriver) Get(env voldriver.Env, getRequest voldriver.GetRequest) voldriver.GetResponse {
-	logger := (*env.Logger()).Session("Get")
+	logger := env.Logger().Session("Get")
 	logger.Info("start")
 	defer logger.Info("end")
 	if volume, ok := d.volumes[getRequest.Name]; ok {
@@ -141,7 +141,7 @@ func (d *LocalDriver) Get(env voldriver.Env, getRequest voldriver.GetRequest) vo
 }
 
 func (d *LocalDriver) Path(env voldriver.Env, getRequest voldriver.PathRequest) voldriver.PathResponse {
-	logger := (*env.Logger()).Session("Path")
+	logger := env.Logger().Session("Path")
 	logger.Info("start")
 	defer logger.Info("end")
 
@@ -187,7 +187,7 @@ func (d *LocalDriver) List(env voldriver.Env) voldriver.ListResponse {
 }
 
 func (d *LocalDriver) Mount(env voldriver.Env, mountRequest voldriver.MountRequest) voldriver.MountResponse {
-	logger := (*env.Logger()).Session("Mount")
+	logger := env.Logger().Session("Mount")
 	logger.Info("start")
 	defer logger.Info("end")
 	var volume *volumeMetadata
@@ -231,7 +231,7 @@ func (d *LocalDriver) Mount(env voldriver.Env, mountRequest voldriver.MountReque
 }
 
 func (d *LocalDriver) Unmount(env voldriver.Env, unmountRequest voldriver.UnmountRequest) voldriver.ErrorResponse {
-	logger := (*env.Logger()).Session("Unmount")
+	logger := env.Logger().Session("Unmount")
 	logger.Info("start")
 	defer logger.Info("end")
 
@@ -245,11 +245,11 @@ func (d *LocalDriver) Unmount(env voldriver.Env, unmountRequest voldriver.Unmoun
 		logger.Info("unmount-volume-not-mounted", lager.Data{"volume_name": unmountRequest.Name})
 		return voldriver.ErrorResponse{Err: fmt.Sprintf("Volume '%s' not mounted", unmountRequest.Name)}
 	}
-	return d.unmount(driverhttp.EnvWithLogger(&logger, env), volume, unmountRequest.Name)
+	return d.unmount(driverhttp.EnvWithLogger(logger, env), volume, unmountRequest.Name)
 }
 
 func (d *LocalDriver) Remove(env voldriver.Env, removeRequest voldriver.RemoveRequest) voldriver.ErrorResponse {
-	logger := (*env.Logger()).Session("remove", lager.Data{"volume": removeRequest})
+	logger := env.Logger().Session("remove", lager.Data{"volume": removeRequest})
 	logger.Info("start")
 	defer logger.Info("end")
 
@@ -266,7 +266,7 @@ func (d *LocalDriver) Remove(env voldriver.Env, removeRequest voldriver.RemoveRe
 	}
 
 	for vol.MountCount > 0 {
-		response = d.unmount(driverhttp.EnvWithLogger(&logger, env), vol, removeRequest.Name)
+		response = d.unmount(driverhttp.EnvWithLogger(logger, env), vol, removeRequest.Name)
 		if response.Err != "" {
 			return response
 		}
@@ -278,7 +278,7 @@ func (d *LocalDriver) Remove(env voldriver.Env, removeRequest voldriver.RemoveRe
 }
 
 func (d *LocalDriver) unmount(env voldriver.Env, volume *volumeMetadata, volumeName string) voldriver.ErrorResponse {
-	logger := (*env.Logger())
+	logger := env.Logger()
 	logger.Info("umount-found-volume", lager.Data{"metadata": volume})
 
 	if volume.MountCount > 1 {
@@ -330,11 +330,11 @@ func NewRealInvokerWithExec(useExec execshim.Exec) Invoker {
 }
 
 func (r *realInvoker) Invoke(env voldriver.Env, executable string, cmdArgs []string) error {
-	logger := (*env.Logger()).Session("invoking-command", lager.Data{"executable": executable, "args": cmdArgs})
+	logger := env.Logger().Session("invoking-command", lager.Data{"executable": executable, "args": cmdArgs})
 	logger.Info("start")
 	defer logger.Info("end")
 
-	cmdHandle := r.useExec.CommandContext((*env.Context()), executable, cmdArgs...)
+	cmdHandle := r.useExec.CommandContext(env.Context(), executable, cmdArgs...)
 
 	_, err := cmdHandle.StdoutPipe()
 	if err != nil {
