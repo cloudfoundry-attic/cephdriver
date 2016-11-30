@@ -8,20 +8,21 @@ import (
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/voldriver"
 
-	"code.cloudfoundry.org/goshims/execshim"
 	"os"
+
 	"code.cloudfoundry.org/goshims/ioutilshim"
 	"code.cloudfoundry.org/goshims/osshim"
 	"code.cloudfoundry.org/voldriver/driverhttp"
+	"code.cloudfoundry.org/voldriver/invoker"
 )
 
 type LocalDriver struct { // see voldriver.resources.go
-	rootDir       string
-	logFile       string
-	volumes       map[string]*volumeMetadata
-	useInvoker    Invoker
-	os 						osshim.Os
-	ioutil 				ioutilshim.Ioutil
+	rootDir    string
+	logFile    string
+	volumes    map[string]*volumeMetadata
+	useInvoker invoker.Invoker
+	os         osshim.Os
+	ioutil     ioutilshim.Ioutil
 }
 type volumeMetadata struct {
 	Keyring          string
@@ -37,10 +38,10 @@ func (v *volumeMetadata) equals(volume *volumeMetadata) bool {
 }
 
 func NewLocalDriver() *LocalDriver {
-	return NewLocalDriverWithInvokerAndSystemUtil(NewRealInvoker(), &osshim.OsShim{}, &ioutilshim.IoutilShim{})
+	return NewLocalDriverWithInvokerAndSystemUtil(invoker.NewRealInvoker(), &osshim.OsShim{}, &ioutilshim.IoutilShim{})
 }
 
-func NewLocalDriverWithInvokerAndSystemUtil(invoker Invoker, os osshim.Os, ioutil ioutilshim.Ioutil) *LocalDriver {
+func NewLocalDriverWithInvokerAndSystemUtil(invoker invoker.Invoker, os osshim.Os, ioutil ioutilshim.Ioutil) *LocalDriver {
 	return &LocalDriver{"_cephdriver/", "/tmp/cephdriver.log", map[string]*volumeMetadata{}, invoker, os, ioutil}
 }
 
@@ -288,12 +289,13 @@ func (d *LocalDriver) unmount(env voldriver.Env, volume *volumeMetadata, volumeN
 	}
 
 	cmdArgs := []string{"-u", volume.LocalMountPoint}
-	if err := d.useInvoker.Invoke(env, "fusermount", cmdArgs); err != nil {
+	_, err := d.useInvoker.Invoke(env, "fusermount", cmdArgs)
+	if err != nil {
 		logger.Error("Error invoking CLI", err)
 		return voldriver.ErrorResponse{Err: fmt.Sprintf("Error unmounting '%s' (%s)", volumeName, err.Error())}
 	}
 	volume.MountCount = 0
-	err := d.os.Remove(volume.KeyPath)
+	err = d.os.Remove(volume.KeyPath)
 	if err != nil {
 		logger.Error("Error deleting file", err)
 		return voldriver.ErrorResponse{Err: fmt.Sprintf("Error unmounting '%s' (%s)", volumeName, err.Error())}
@@ -308,50 +310,6 @@ func (d *LocalDriver) unmount(env voldriver.Env, volume *volumeMetadata, volumeN
 
 func (d *LocalDriver) callCeph(env voldriver.Env, args []string) error {
 	cmd := "ceph-fuse"
-	return d.useInvoker.Invoke(env, cmd, args)
-}
-
-//go:generate counterfeiter -o ./cephfakes/fake_invoker.go . Invoker
-
-type Invoker interface {
-	Invoke(env voldriver.Env, executable string, args []string) error
-}
-
-type realInvoker struct {
-	useExec execshim.Exec
-}
-
-func NewRealInvoker() Invoker {
-	return NewRealInvokerWithExec(&execshim.ExecShim{})
-}
-
-func NewRealInvokerWithExec(useExec execshim.Exec) Invoker {
-	return &realInvoker{useExec}
-}
-
-func (r *realInvoker) Invoke(env voldriver.Env, executable string, cmdArgs []string) error {
-	logger := env.Logger().Session("invoking-command", lager.Data{"executable": executable, "args": cmdArgs})
-	logger.Info("start")
-	defer logger.Info("end")
-
-	cmdHandle := r.useExec.CommandContext(env.Context(), executable, cmdArgs...)
-
-	_, err := cmdHandle.StdoutPipe()
-	if err != nil {
-		logger.Error("unable to get stdout", err)
-		return err
-	}
-
-	if err = cmdHandle.Start(); err != nil {
-		logger.Error("starting command", err)
-		return err
-	}
-
-	if err = cmdHandle.Wait(); err != nil {
-		logger.Error("command-exited", err)
-		return err
-	}
-
-	// could validate stdout, but defer until actually need it
-	return nil
+	_, err := d.useInvoker.Invoke(env, cmd, args)
+	return err
 }

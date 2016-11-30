@@ -1,42 +1,41 @@
 package cephlocal_test
 
 import (
-	"bytes"
 	"fmt"
 
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/lager/lagertest"
 
 	"code.cloudfoundry.org/cephdriver/cephlocal"
-	"code.cloudfoundry.org/cephdriver/cephlocal/cephfakes"
 	"code.cloudfoundry.org/voldriver"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"code.cloudfoundry.org/goshims/execshim/exec_fake"
-	"code.cloudfoundry.org/goshims/osshim/os_fake"
-	"code.cloudfoundry.org/goshims/ioutilshim/ioutil_fake"
 	"context"
+
+	"code.cloudfoundry.org/goshims/ioutilshim/ioutil_fake"
+	"code.cloudfoundry.org/goshims/osshim/os_fake"
 	"code.cloudfoundry.org/voldriver/driverhttp"
+	"code.cloudfoundry.org/voldriver/voldriverfakes"
 )
 
 var _ = Describe("cephlocal", func() {
 
 	var (
 		driver      voldriver.Driver
-		fakeInvoker *cephfakes.FakeInvoker
+		fakeInvoker *voldriverfakes.FakeInvoker
 		fakeOs      *os_fake.FakeOs
 		fakeIoutil  *ioutil_fake.FakeIoutil
 		testLogger  lager.Logger
-		testCtx			context.Context
-		testEnv			voldriver.Env
+		testCtx     context.Context
+		testEnv     voldriver.Env
 	)
 
 	BeforeEach(func() {
-		fakeInvoker = new(cephfakes.FakeInvoker)
+		fakeInvoker = new(voldriverfakes.FakeInvoker)
 		fakeOs = new(os_fake.FakeOs)
-		fakeIoutil = new (ioutil_fake.FakeIoutil)
+		fakeIoutil = new(ioutil_fake.FakeIoutil)
 		driver = cephlocal.NewLocalDriverWithInvokerAndSystemUtil(fakeInvoker, fakeOs, fakeIoutil)
 		testLogger = lagertest.NewTestLogger("CephdriverTest")
 		testCtx = context.TODO()
@@ -151,7 +150,7 @@ var _ = Describe("cephlocal", func() {
 
 			Context("when the mount completes successfully", func() {
 				BeforeEach(func() {
-					fakeInvoker.InvokeReturns(nil)
+					fakeInvoker.InvokeReturns(nil, nil)
 					mountSuccessful(testEnv, driver, volumeName)
 
 					Expect(fakeOs.MkdirAllCallCount()).To(Equal(1))
@@ -200,7 +199,7 @@ var _ = Describe("cephlocal", func() {
 
 			Context("when the mount completes successfully", func() {
 				BeforeEach(func() {
-					fakeInvoker.InvokeReturns(nil)
+					fakeInvoker.InvokeReturns(nil, nil)
 					mountSuccessful(testEnv, driver, volumeName)
 
 					Expect(fakeOs.MkdirAllCallCount()).To(Equal(1))
@@ -248,7 +247,7 @@ var _ = Describe("cephlocal", func() {
 			})
 
 			It("should report an error if CLI invocation fails", func() {
-				fakeInvoker.InvokeReturns(fmt.Errorf("invocation fails"))
+				fakeInvoker.InvokeReturns([]byte("error"), fmt.Errorf("invocation fails"))
 				mountRequest := voldriver.MountRequest{Name: volumeName}
 				mountResponse = driver.Mount(testEnv, mountRequest)
 				Expect(mountResponse.Err).To(Equal(fmt.Sprintf("Error mounting '%s' (invocation fails)", volumeName)))
@@ -256,7 +255,7 @@ var _ = Describe("cephlocal", func() {
 
 			Context("when the mount completes successfully", func() {
 				BeforeEach(func() {
-					fakeInvoker.InvokeReturns(nil)
+					fakeInvoker.InvokeReturns(nil, nil)
 					mountSuccessful(testEnv, driver, volumeName)
 
 					Expect(fakeOs.MkdirAllCallCount()).To(Equal(1))
@@ -337,7 +336,7 @@ var _ = Describe("cephlocal", func() {
 					Expect(unmountResponse.Err).To(Equal(fmt.Sprintf("Error unmounting '%s' (file deletion failed)", volumeName)))
 				})
 				It("should report an error if CLI invocation fails", func() {
-					fakeInvoker.InvokeReturns(fmt.Errorf("invocation fails"))
+					fakeInvoker.InvokeReturns([]byte("error"), fmt.Errorf("invocation fails"))
 					unmountRequest := voldriver.UnmountRequest{Name: volumeName}
 					unmountResponse = driver.Unmount(testEnv, unmountRequest)
 					Expect(unmountResponse.Err).To(Equal(fmt.Sprintf("Error unmounting '%s' (invocation fails)", volumeName)))
@@ -345,7 +344,7 @@ var _ = Describe("cephlocal", func() {
 
 				Context("when fusermount -u successful", func() {
 					BeforeEach(func() {
-						fakeInvoker.InvokeReturns(nil)
+						fakeInvoker.InvokeReturns(nil, nil)
 
 						unmountSuccessful(testEnv, driver, volumeName)
 
@@ -425,7 +424,7 @@ var _ = Describe("cephlocal", func() {
 				})
 				Context("when unmount fails", func() {
 					BeforeEach(func() {
-						fakeInvoker.InvokeReturns(fmt.Errorf("invocation fails"))
+						fakeInvoker.InvokeReturns([]byte("error"), fmt.Errorf("invocation fails"))
 					})
 					It("returns error", func() {
 						removeResponse := driver.Remove(testEnv, voldriver.RemoveRequest{
@@ -439,56 +438,6 @@ var _ = Describe("cephlocal", func() {
 		})
 	})
 
-})
-
-var _ = Describe("RealInvoker", func() {
-	var (
-		subject    cephlocal.Invoker
-		fakeCmd    *exec_fake.FakeCmd
-		fakeExec   *exec_fake.FakeExec
-		testLogger lager.Logger
-		testCtx  context.Context
-		testEnv  voldriver.Env
-		cmd        = "some-fake-command"
-		args       = []string{"fake-args-1"}
-	)
-	Context("when invoking an executable", func() {
-		BeforeEach(func() {
-			testLogger = lagertest.NewTestLogger("InvokerTest")
-			testCtx  = context.TODO()
-			testEnv = driverhttp.NewHttpDriverEnv(testLogger, testCtx)
-			fakeExec = new(exec_fake.FakeExec)
-			fakeCmd = new(exec_fake.FakeCmd)
-			fakeExec.CommandContextReturns(fakeCmd)
-			subject = cephlocal.NewRealInvokerWithExec(fakeExec)
-		})
-
-		It("should report an error when unable to attach to stdout", func() {
-			fakeCmd.StdoutPipeReturns(errCloser{bytes.NewBufferString("")}, fmt.Errorf("unable to attach to stdout"))
-			err := subject.Invoke(testEnv, cmd, args)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal("unable to attach to stdout"))
-		})
-
-		It("should report an error when unable to start binary", func() {
-			fakeCmd.StdoutPipeReturns(errCloser{bytes.NewBufferString("cmdfails")}, nil)
-			fakeCmd.StartReturns(fmt.Errorf("unable to start binary"))
-			err := subject.Invoke(testEnv, cmd, args)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal("unable to start binary"))
-		})
-		It("should report an error when executing the driver binary fails", func() {
-			fakeCmd.WaitReturns(fmt.Errorf("executing driver binary fails"))
-
-			err := subject.Invoke(testEnv, cmd, args)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal("executing driver binary fails"))
-		})
-		It("should successfully invoke cli", func() {
-			err := subject.Invoke(testEnv, cmd, args)
-			Expect(err).ToNot(HaveOccurred())
-		})
-	})
 })
 
 func createSuccessful(env voldriver.Env, driver voldriver.Driver, volumeName string, opts map[string]interface{}) {
