@@ -291,18 +291,18 @@ func (d *LocalDriver) unmount(env voldriver.Env, volume *volumeMetadata, volumeN
 	cmdArgs := []string{"-u", volume.LocalMountPoint}
 	_, err := d.useInvoker.Invoke(env, "fusermount", cmdArgs)
 	if err != nil {
-		logger.Error("Error invoking CLI", err)
+		logger.Error("error-invoking-fusermount", err)
 		return voldriver.ErrorResponse{Err: fmt.Sprintf("Error unmounting '%s' (%s)", volumeName, err.Error())}
 	}
 	volume.MountCount = 0
 	err = d.os.Remove(volume.KeyPath)
 	if err != nil {
-		logger.Error("Error deleting file", err)
+		logger.Error("error-deleting-key-file", err)
 		return voldriver.ErrorResponse{Err: fmt.Sprintf("Error unmounting '%s' (%s)", volumeName, err.Error())}
 	}
 	err = d.os.Remove(volume.LocalMountPoint)
 	if err != nil {
-		logger.Error("Error deleting local mountpoint", err)
+		logger.Error("error-deleting-local-mountpoint", err)
 		return voldriver.ErrorResponse{Err: fmt.Sprintf("Error unmounting '%s' (%s)", volumeName, err.Error())}
 	}
 	return voldriver.ErrorResponse{}
