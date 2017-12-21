@@ -14,8 +14,8 @@ import (
 
 	"syscall"
 
-	cf_lager "code.cloudfoundry.org/cflager"
 	cf_debug_server "code.cloudfoundry.org/debugserver"
+	"code.cloudfoundry.org/lager/lagerflags"
 )
 
 func init() {
@@ -26,7 +26,7 @@ func main() {
 	cephServerConfig := cephlocal.CephServerConfig{}
 	parseCommandLine(&cephServerConfig)
 
-	withLogger, _ := cf_lager.New("ceph-driver-server")
+	withLogger, _ := lagerflags.New("ceph-driver-server")
 
 	syscall.Umask(000)
 
@@ -68,7 +68,7 @@ func parseCommandLine(config *cephlocal.CephServerConfig) {
 	flag.StringVar(&config.DriversPath, "driversPath", "", "Path to directory where drivers are installed")
 	flag.StringVar(&config.Transport, "transport", "tcp", "Transport protocol to transmit HTTP over")
 
-	cf_lager.AddFlags(flag.CommandLine)
+	lagerflags.AddFlags(flag.CommandLine)
 	cf_debug_server.AddFlags(flag.CommandLine)
 
 	flag.Parse()
