@@ -16,6 +16,8 @@ import (
 	"code.cloudfoundry.org/voldriver/invoker"
 )
 
+const MOUNT_CMD = "/var/vcap/jobs/cephdriver/scripts/mount.sh"
+
 type LocalDriver struct { // see voldriver.resources.go
 	rootDir    string
 	logFile    string
@@ -309,7 +311,6 @@ func (d *LocalDriver) unmount(env voldriver.Env, volume *volumeMetadata, volumeN
 }
 
 func (d *LocalDriver) callCeph(env voldriver.Env, args []string) error {
-	cmd := "ceph-fuse"
-	_, err := d.useInvoker.Invoke(env, cmd, args)
+	_, err := d.useInvoker.Invoke(env, MOUNT_CMD, args)
 	return err
 }

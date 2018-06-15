@@ -327,7 +327,7 @@ var _ = Describe("cephlocal", func() {
 					mountSuccessful(testEnv, driver, volumeName)
 
 					_, cmd, _ := fakeInvoker.InvokeArgsForCall(0)
-					Expect(cmd).To(Equal("ceph-fuse"))
+					Expect(cmd).To(Equal(cephlocal.MOUNT_CMD))
 				})
 				It("should report an error if remove config file fails", func() {
 					fakeOs.RemoveReturns(fmt.Errorf("file deletion failed"))
