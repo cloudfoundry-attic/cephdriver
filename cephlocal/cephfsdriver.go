@@ -311,6 +311,12 @@ func (d *LocalDriver) unmount(env voldriver.Env, volume *volumeMetadata, volumeN
 }
 
 func (d *LocalDriver) callCeph(env voldriver.Env, args []string) error {
-	_, err := d.useInvoker.Invoke(env, MOUNT_CMD, args)
+	logger := env.Logger().Session("call-ceph")
+	logger.Info("start")
+	defer logger.Info("end")
+
+	output, err := d.useInvoker.Invoke(env, MOUNT_CMD, args)
+    logger.Debug(fmt.Sprintf("ceph-fuse-output: %s", string(output)))
+
 	return err
 }
