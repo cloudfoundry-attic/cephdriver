@@ -16,7 +16,8 @@ import (
 	"code.cloudfoundry.org/voldriver/invoker"
 )
 
-const MOUNT_CMD = "/var/vcap/jobs/cephdriver/scripts/mount.sh"
+//const MOUNT_CMD = "/var/vcap/jobs/cephdriver/scripts/mount.sh"
+const MOUNT_CMD = "ceph-fuse"
 
 type LocalDriver struct { // see voldriver.resources.go
 	rootDir    string
