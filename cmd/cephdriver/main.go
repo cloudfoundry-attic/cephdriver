@@ -67,6 +67,7 @@ func parseCommandLine(config *cephlocal.CephServerConfig) {
 	flag.StringVar(&config.AtAddress, "listenAddr", "0.0.0.0:9750", "host:port to serve volume management functions")
 	flag.StringVar(&config.DriversPath, "driversPath", "", "Path to directory where drivers are installed")
 	flag.StringVar(&config.Transport, "transport", "tcp", "Transport protocol to transmit HTTP over")
+	flag.Var(&config.FuseArgs, "fuseArg", "Additional arguments that will be included in each ceph-fuse invocation")
 
 	lagerflags.AddFlags(flag.CommandLine)
 	cf_debug_server.AddFlags(flag.CommandLine)

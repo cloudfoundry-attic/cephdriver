@@ -54,7 +54,7 @@ var _ = Describe("Ceph Driver Server", func() {
 			})
 
 			It("creates a ifrit.Runner", func() {
-				runner, err := cephDriverServer.CreateTcpServer(logger, cephDriverConfig.AtAddress, cephDriverConfig.DriversPath)
+				runner, err := cephDriverServer.CreateTcpServer(logger, cephDriverConfig.AtAddress, cephDriverConfig.DriversPath, nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(runner).NotTo(BeNil())
 			})
@@ -70,7 +70,7 @@ var _ = Describe("Ceph Driver Server", func() {
 			})
 
 			It("creates a ifrit.Runner", func() {
-				runner, err := cephDriverServer.CreateUnixServer(logger, cephDriverConfig.AtAddress, cephDriverConfig.DriversPath)
+				runner, err := cephDriverServer.CreateUnixServer(logger, cephDriverConfig.AtAddress, cephDriverConfig.DriversPath, nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(runner).NotTo(BeNil())
 			})
@@ -105,7 +105,7 @@ var _ = Describe("Ceph Driver Server", func() {
 
 		Context("when we have valid atAddress and driversPath", func() {
 			It("returns a ifrit.Runner", func() {
-				runner, err := cephDriverServer.CreateTcpServer(logger, atAddress, driversPath)
+				runner, err := cephDriverServer.CreateTcpServer(logger, atAddress, driversPath, nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(runner).NotTo(BeNil())
 			})
@@ -114,7 +114,7 @@ var _ = Describe("Ceph Driver Server", func() {
 		Context("when we have invalid arguments", func() {
 			Context("when atAddress is invalid", func() {
 				It("fails creating Runner", func() {
-					runner, err := cephDriverServer.CreateTcpServer(logger, "...", driversPath)
+					runner, err := cephDriverServer.CreateTcpServer(logger, "...", driversPath, nil)
 					Expect(err).To(HaveOccurred())
 					Expect(runner).To(BeNil())
 				})
@@ -122,7 +122,7 @@ var _ = Describe("Ceph Driver Server", func() {
 
 			Context("when atAddress and driversPath are invalid", func() {
 				It("fails creating Runner", func() {
-					runner, err := cephDriverServer.CreateTcpServer(logger, "...", "/root/../..")
+					runner, err := cephDriverServer.CreateTcpServer(logger, "...", "/root/../..", nil)
 					Expect(err).To(HaveOccurred())
 					Expect(runner).To(BeNil())
 				})
@@ -138,7 +138,7 @@ var _ = Describe("Ceph Driver Server", func() {
 
 		Context("when we have valid atAddress and driversPath", func() {
 			It("returns a ifrit.Runner", func() {
-				runner, err := cephDriverServer.CreateUnixServer(logger, atAddress, driversPath)
+				runner, err := cephDriverServer.CreateUnixServer(logger, atAddress, driversPath, nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(runner).NotTo(BeNil())
 			})
@@ -147,7 +147,7 @@ var _ = Describe("Ceph Driver Server", func() {
 		Context("when we have invalid arguments", func() {
 			Context("when atAddress is invalid", func() {
 				It("fails creating Runner", func() {
-					runner, err := cephDriverServer.CreateUnixServer(logger, "~/fake-address", driversPath)
+					runner, err := cephDriverServer.CreateUnixServer(logger, "~/fake-address", driversPath, nil)
 					Expect(err).To(HaveOccurred())
 					Expect(runner).To(BeNil())
 				})
@@ -155,7 +155,7 @@ var _ = Describe("Ceph Driver Server", func() {
 
 			Context("when atAddress and driversPath are invalid", func() {
 				It("fails creating Runner", func() {
-					runner, err := cephDriverServer.CreateUnixServer(logger, "~/fake-address", "/root/../..")
+					runner, err := cephDriverServer.CreateUnixServer(logger, "~/fake-address", "/root/../..", nil)
 					Expect(err).To(HaveOccurred())
 					Expect(runner).To(BeNil())
 				})

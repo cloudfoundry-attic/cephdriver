@@ -23,10 +23,22 @@ import (
 
 const IPV4_REGEX string = `^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\:([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$`
 
+type fuseArgs []string
+
+func (i *fuseArgs) String() string {
+	return strings.Join(*i, ", ")
+}
+
+func (i *fuseArgs) Set(value string) error {
+	*i = append(*i, value)
+	return nil
+}
+
 type CephServerConfig struct {
 	AtAddress   string
 	DriversPath string
 	Transport   string
+	FuseArgs    fuseArgs
 }
 
 type CephDriverServer interface {
@@ -50,9 +62,9 @@ func (server *CephDriverServerStruct) Runner(logger lager.Logger) (ifrit.Runner,
 	server.config.Transport = server.DetermineTransport(server.config.AtAddress)
 
 	if server.config.Transport == "tcp" {
-		cephDriverServer, err = server.CreateTcpServer(logger, server.config.AtAddress, server.config.DriversPath)
+		cephDriverServer, err = server.CreateTcpServer(logger, server.config.AtAddress, server.config.DriversPath, server.config.FuseArgs)
 	} else {
-		cephDriverServer, err = server.CreateUnixServer(logger, server.config.AtAddress, server.config.DriversPath)
+		cephDriverServer, err = server.CreateUnixServer(logger, server.config.AtAddress, server.config.DriversPath, server.config.FuseArgs)
 
 	}
 	if err != nil {
@@ -62,7 +74,7 @@ func (server *CephDriverServerStruct) Runner(logger lager.Logger) (ifrit.Runner,
 	return cephDriverServer, nil
 }
 
-func (server *CephDriverServerStruct) CreateTcpServer(logger lager.Logger, atAddress string, driversPath string) (ifrit.Runner, error) {
+func (server *CephDriverServerStruct) CreateTcpServer(logger lager.Logger, atAddress string, driversPath string, fuseArgs []string) (ifrit.Runner, error) {
 	logger = logger.Session("create-tcp-server")
 	logger.Info("start")
 	defer logger.Info("ends")
@@ -86,7 +98,7 @@ func (server *CephDriverServerStruct) CreateTcpServer(logger lager.Logger, atAdd
 		return nil, err
 	}
 
-	handler, err := driverhttp.NewHandler(logger, NewLocalDriver())
+	handler, err := driverhttp.NewHandler(logger, NewLocalDriver(fuseArgs))
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +106,7 @@ func (server *CephDriverServerStruct) CreateTcpServer(logger lager.Logger, atAdd
 	return http_server.New(atAddress, handler), nil
 }
 
-func (server *CephDriverServerStruct) CreateUnixServer(logger lager.Logger, atAddress string, driversPath string) (ifrit.Runner, error) {
+func (server *CephDriverServerStruct) CreateUnixServer(logger lager.Logger, atAddress string, driversPath string, fuseArgs []string) (ifrit.Runner, error) {
 	logger = logger.Session("create-unix-server")
 	logger.Info("start")
 	defer logger.Info("ends")
@@ -110,7 +122,7 @@ func (server *CephDriverServerStruct) CreateUnixServer(logger lager.Logger, atAd
 		return nil, err
 	}
 
-	handler, err := driverhttp.NewHandler(logger, NewLocalDriver())
+	handler, err := driverhttp.NewHandler(logger, NewLocalDriver(fuseArgs))
 	if err != nil {
 		return nil, err
 	}

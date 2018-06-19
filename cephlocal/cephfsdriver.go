@@ -26,7 +26,9 @@ type LocalDriver struct { // see voldriver.resources.go
 	useInvoker invoker.Invoker
 	os         osshim.Os
 	ioutil     ioutilshim.Ioutil
+	fuseArgs   []string
 }
+
 type volumeMetadata struct {
 	Keyring          string
 	IP               string
@@ -40,12 +42,12 @@ func (v *volumeMetadata) equals(volume *volumeMetadata) bool {
 	return volume.LocalMountPoint == v.LocalMountPoint && volume.RemoteMountPoint == v.RemoteMountPoint && volume.Keyring == v.Keyring && volume.IP == v.IP
 }
 
-func NewLocalDriver() *LocalDriver {
-	return NewLocalDriverWithInvokerAndSystemUtil(invoker.NewRealInvoker(), &osshim.OsShim{}, &ioutilshim.IoutilShim{})
+func NewLocalDriver(fuseArgs []string) *LocalDriver {
+	return NewLocalDriverWithInvokerAndSystemUtil(invoker.NewRealInvoker(), &osshim.OsShim{}, &ioutilshim.IoutilShim{}, fuseArgs)
 }
 
-func NewLocalDriverWithInvokerAndSystemUtil(invoker invoker.Invoker, os osshim.Os, ioutil ioutilshim.Ioutil) *LocalDriver {
-	return &LocalDriver{"_cephdriver/", "/tmp/cephdriver.log", map[string]*volumeMetadata{}, invoker, os, ioutil}
+func NewLocalDriverWithInvokerAndSystemUtil(invoker invoker.Invoker, os osshim.Os, ioutil ioutilshim.Ioutil, fuseArgs []string) *LocalDriver {
+	return &LocalDriver{"_cephdriver/", "/tmp/cephdriver.log", map[string]*volumeMetadata{}, invoker, os, ioutil, fuseArgs}
 }
 
 func (d *LocalDriver) Create(env voldriver.Env, createRequest voldriver.CreateRequest) voldriver.ErrorResponse {
@@ -224,6 +226,11 @@ func (d *LocalDriver) Mount(env voldriver.Env, mountRequest voldriver.MountReque
 	}
 
 	cmdArgs := []string{"-k", volume.KeyPath, "-m", fmt.Sprintf("%s:6789", volume.IP), "-r", volume.RemoteMountPoint, volume.LocalMountPoint}
+
+	if len(d.fuseArgs) > 0 {
+		cmdArgs = append(d.fuseArgs, cmdArgs...)
+	}
+
 	if err := d.callCeph(env, cmdArgs); err != nil {
 		logger.Error("Error mounting volume", err)
 		return voldriver.MountResponse{Err: fmt.Sprintf("Error mounting '%s' (%s)", mountRequest.Name, err.Error())}
@@ -316,8 +323,10 @@ func (d *LocalDriver) callCeph(env voldriver.Env, args []string) error {
 	logger.Info("start")
 	defer logger.Info("end")
 
+	logger.Info(fmt.Sprintf("invoke-ceph-fuse: %s %#v", MOUNT_CMD, args))
+
 	output, err := d.useInvoker.Invoke(env, MOUNT_CMD, args)
-    logger.Debug(fmt.Sprintf("ceph-fuse-output: %s", string(output)))
+	logger.Debug(fmt.Sprintf("ceph-fuse-output: %s", string(output)))
 
 	return err
 }

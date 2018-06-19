@@ -30,16 +30,22 @@ var _ = Describe("cephlocal", func() {
 		testLogger  lager.Logger
 		testCtx     context.Context
 		testEnv     voldriver.Env
+		fuseArgs    []string
 	)
 
 	BeforeEach(func() {
 		fakeInvoker = new(voldriverfakes.FakeInvoker)
 		fakeOs = new(os_fake.FakeOs)
 		fakeIoutil = new(ioutil_fake.FakeIoutil)
-		driver = cephlocal.NewLocalDriverWithInvokerAndSystemUtil(fakeInvoker, fakeOs, fakeIoutil)
+		fuseArgs = nil
 		testLogger = lagertest.NewTestLogger("CephdriverTest")
 		testCtx = context.TODO()
 		testEnv = driverhttp.NewHttpDriverEnv(testLogger, testCtx)
+	})
+
+	JustBeforeEach(func() {
+		driver = cephlocal.NewLocalDriverWithInvokerAndSystemUtil(fakeInvoker, fakeOs, fakeIoutil, fuseArgs)
+
 	})
 
 	Describe(".Activate", func() {
@@ -62,8 +68,12 @@ var _ = Describe("cephlocal", func() {
 			Context("when successful", func() {
 				BeforeEach(func() {
 					opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "local_mount_point": "some-localmountpoint", "remote_mount_point": "some-remote-mountpoint"}
+				})
+
+				JustBeforeEach(func() {
 					createSuccessful(testEnv, driver, "some-volume-name", opts)
 				})
+
 				It("should be able to retrieve volume", func() {
 					getResponse := getSuccessful(testEnv, driver, "some-volume-name")
 					Expect(getResponse.Volume.Mountpoint).To(Equal(""))
@@ -105,7 +115,7 @@ var _ = Describe("cephlocal", func() {
 				})
 			})
 			Context("when volume already exists", func() {
-				BeforeEach(func() {
+				JustBeforeEach(func() {
 					opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "local_mount_point": "some-localmountpoint", "remote_mount_point": "some-remote-mountpoint"}
 					createRequest := voldriver.CreateRequest{Name: "some-volume-name", Opts: opts}
 					createResponse = driver.Create(testEnv, createRequest)
@@ -125,7 +135,6 @@ var _ = Describe("cephlocal", func() {
 				})
 			})
 		})
-
 	})
 
 	Describe(".List", func() {
@@ -138,6 +147,9 @@ var _ = Describe("cephlocal", func() {
 			BeforeEach(func() {
 				volumeName = "volume-name"
 				opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "local_mount_point": "some-localmountpoint", "remote_mount_point": "some-remote-mountpoint"}
+			})
+
+			JustBeforeEach(func() {
 				createSuccessful(testEnv, driver, volumeName, opts)
 			})
 
@@ -149,7 +161,7 @@ var _ = Describe("cephlocal", func() {
 			})
 
 			Context("when the mount completes successfully", func() {
-				BeforeEach(func() {
+				JustBeforeEach(func() {
 					fakeInvoker.InvokeReturns(nil, nil)
 					mountSuccessful(testEnv, driver, volumeName)
 
@@ -186,6 +198,9 @@ var _ = Describe("cephlocal", func() {
 			BeforeEach(func() {
 				volumeName = "volume-name"
 				opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "local_mount_point": "some-localmountpoint", "remote_mount_point": "some-remote-mountpoint"}
+			})
+
+			JustBeforeEach(func() {
 				createSuccessful(testEnv, driver, volumeName, opts)
 			})
 
@@ -198,7 +213,7 @@ var _ = Describe("cephlocal", func() {
 			})
 
 			Context("when the mount completes successfully", func() {
-				BeforeEach(func() {
+				JustBeforeEach(func() {
 					fakeInvoker.InvokeReturns(nil, nil)
 					mountSuccessful(testEnv, driver, volumeName)
 
@@ -226,9 +241,13 @@ var _ = Describe("cephlocal", func() {
 			opts          map[string]interface{}
 		)
 		Context("when there is a created/attached volume", func() {
+
 			BeforeEach(func() {
 				volumeName = "volume-name"
 				opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "local_mount_point": "some-localmountpoint", "remote_mount_point": "some-remote-mountpoint"}
+			})
+
+			JustBeforeEach(func() {
 				createSuccessful(testEnv, driver, volumeName, opts)
 			})
 
@@ -254,7 +273,7 @@ var _ = Describe("cephlocal", func() {
 			})
 
 			Context("when the mount completes successfully", func() {
-				BeforeEach(func() {
+				JustBeforeEach(func() {
 					fakeInvoker.InvokeReturns(nil, nil)
 					mountSuccessful(testEnv, driver, volumeName)
 
@@ -263,10 +282,16 @@ var _ = Describe("cephlocal", func() {
 					Expect(path).To(Equal("some-localmountpoint"))
 				})
 
-				It("invokes Ceph with a remote mountpoint", func() {
-					_, _, args := fakeInvoker.InvokeArgsForCall(0)
-					Expect(args).To(ContainElement("-r"))
-					Expect(args).To(ContainElement("some-remote-mountpoint"))
+				It("invokes Ceph with the correct args", func() {
+					_, cmd, args := fakeInvoker.InvokeArgsForCall(0)
+					Expect(cmd).To(Equal("ceph-fuse"))
+					Expect(args[0]).To(Equal("-k"))
+					Expect(args[1]).To(MatchRegexp(`/tmp/keypath_\d+`))
+					Expect(args[2]).To(Equal("-m"))
+					Expect(args[3]).To(Equal("some-ip:6789"))
+					Expect(args[4]).To(Equal("-r"))
+					Expect(args[5]).To(Equal("some-remote-mountpoint"))
+					Expect(args[6]).To(Equal("some-localmountpoint"))
 				})
 
 				It("creates a keyfile", func() {
@@ -288,6 +313,38 @@ var _ = Describe("cephlocal", func() {
 					Expect(fakeInvoker.InvokeCallCount()).To(Equal(1))
 				})
 			})
+
+			Context("when additional fuseArgs are specified", func() {
+				BeforeEach(func() {
+					fuseArgs = []string{"--one=two", "--three=four"}
+				})
+
+				JustBeforeEach(func() {
+					createSuccessful(testEnv, driver, volumeName, opts)
+
+					fakeInvoker.InvokeReturns(nil, nil)
+					mountSuccessful(testEnv, driver, volumeName)
+
+					Expect(fakeOs.MkdirAllCallCount()).To(Equal(1))
+					path, _ := fakeOs.MkdirAllArgsForCall(0)
+					Expect(path).To(Equal("some-localmountpoint"))
+				})
+
+				It("invokes Ceph with the correct args", func() {
+					_, cmd, args := fakeInvoker.InvokeArgsForCall(0)
+					Expect(cmd).To(Equal("ceph-fuse"))
+					Expect(args[0]).To(Equal("--one=two"))
+					Expect(args[1]).To(Equal("--three=four"))
+					Expect(args[2]).To(Equal("-k"))
+					Expect(args[3]).To(MatchRegexp(`/tmp/keypath_\d+`))
+					Expect(args[4]).To(Equal("-m"))
+					Expect(args[5]).To(Equal("some-ip:6789"))
+					Expect(args[6]).To(Equal("-r"))
+					Expect(args[7]).To(Equal("some-remote-mountpoint"))
+					Expect(args[8]).To(Equal("some-localmountpoint"))
+				})
+			})
+
 		})
 	})
 
@@ -301,6 +358,9 @@ var _ = Describe("cephlocal", func() {
 			BeforeEach(func() {
 				volumeName = "volume-name"
 				opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "local_mount_point": "some-localmountpoint", "remote_mount_point": "some-remote-mountpoint"}
+			})
+
+			JustBeforeEach(func() {
 				createSuccessful(testEnv, driver, volumeName, opts)
 			})
 
@@ -323,7 +383,7 @@ var _ = Describe("cephlocal", func() {
 			})
 
 			Context("when volume mounted", func() {
-				BeforeEach(func() {
+				JustBeforeEach(func() {
 					mountSuccessful(testEnv, driver, volumeName)
 
 					_, cmd, _ := fakeInvoker.InvokeArgsForCall(0)
@@ -343,7 +403,7 @@ var _ = Describe("cephlocal", func() {
 				})
 
 				Context("when fusermount -u successful", func() {
-					BeforeEach(func() {
+					JustBeforeEach(func() {
 						fakeInvoker.InvokeReturns(nil, nil)
 
 						unmountSuccessful(testEnv, driver, volumeName)
@@ -364,7 +424,7 @@ var _ = Describe("cephlocal", func() {
 				})
 
 				Context("when the volume is mounted for a second time and then unmounted", func() {
-					BeforeEach(func() {
+					JustBeforeEach(func() {
 						mountSuccessful(testEnv, driver, volumeName)
 						unmountSuccessful(testEnv, driver, volumeName)
 					})
@@ -398,6 +458,8 @@ var _ = Describe("cephlocal", func() {
 		Context("when there is a created/attached volume", func() {
 			BeforeEach(func() {
 				opts = map[string]interface{}{"keyring": "some-keyring", "ip": "some-ip", "local_mount_point": "some-localmountpoint", "remote_mount_point": "some-remote-mountpoint"}
+			})
+			JustBeforeEach(func() {
 				createSuccessful(testEnv, driver, volumeName, opts)
 			})
 			It("destroys volume", func() {
@@ -409,7 +471,7 @@ var _ = Describe("cephlocal", func() {
 			})
 
 			Context("when volume mounted", func() {
-				BeforeEach(func() {
+				JustBeforeEach(func() {
 					mountSuccessful(testEnv, driver, volumeName)
 				})
 				It("unmounts and destroys volume", func() {
@@ -423,7 +485,7 @@ var _ = Describe("cephlocal", func() {
 					Expect(mountPointPath).To(Equal("some-localmountpoint"))
 				})
 				Context("when unmount fails", func() {
-					BeforeEach(func() {
+					JustBeforeEach(func() {
 						fakeInvoker.InvokeReturns([]byte("error"), fmt.Errorf("invocation fails"))
 					})
 					It("returns error", func() {
@@ -432,12 +494,10 @@ var _ = Describe("cephlocal", func() {
 						})
 						Expect(removeResponse.Err).To(Equal("Error unmounting '" + volumeName + "' (invocation fails)"))
 					})
-
 				})
 			})
 		})
 	})
-
 })
 
 func createSuccessful(env voldriver.Env, driver voldriver.Driver, volumeName string, opts map[string]interface{}) {
